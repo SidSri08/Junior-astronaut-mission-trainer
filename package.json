@@ -1,0 +1,19 @@
+{
+  "name": "junior-astronaut-mission-trainer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Educational 3D lunar outpost game for ages 7-12 (NASA Space Apps Challenge 2026)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}

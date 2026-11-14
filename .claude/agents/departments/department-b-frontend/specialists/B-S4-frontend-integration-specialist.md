@@ -1,3 +1,10 @@
+---
+name: b-s4-frontend-integration-specialist
+description: "B-S4 Frontend Integration Specialist for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: Claude Sonnet 5.5. Use for tasks owned by B-S4 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: sonnet
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:sonnet maps from 'Claude Sonnet 5.5'; non-Claude models fall back to 'inherit'. -->
+
 # B-S4 — Frontend Integration Specialist
 
 **Agent ID:** B-S4  

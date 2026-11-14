@@ -1,3 +1,10 @@
+---
+name: f-s1-functional-test-engineer
+description: "F-S1 Functional Test Engineer for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: GPT-oss 120B. Use for tasks owned by F-S1 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'GPT-oss 120B'; non-Claude models fall back to 'inherit'. -->
+
 # F-S1 — Functional Test Engineer
 
 **Agent ID:** F-S1  

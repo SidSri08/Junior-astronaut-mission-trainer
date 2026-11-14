@@ -1,3 +1,10 @@
+---
+name: c-s4-gameplay-balance-analyst
+description: "C-S4 Gameplay Balance Analyst for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: GPT-oss 120B. Use for tasks owned by C-S4 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'GPT-oss 120B'; non-Claude models fall back to 'inherit'. -->
+
 # C-S4 — Gameplay Balance Analyst
 
 **Agent ID:** C-S4  

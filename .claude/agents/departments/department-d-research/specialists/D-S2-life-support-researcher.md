@@ -1,3 +1,10 @@
+---
+name: d-s2-life-support-researcher
+description: "D-S2 Life Support Researcher for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: Claude Sonnet 5.5. Use for tasks owned by D-S2 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: sonnet
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:sonnet maps from 'Claude Sonnet 5.5'; non-Claude models fall back to 'inherit'. -->
+
 # D-S2 — Life Support Researcher
 
 **Agent ID:** D-S2  

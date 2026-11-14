@@ -1,3 +1,10 @@
+---
+name: e-s2-science-communication-specialist
+description: "E-S2 Science Communication Specialist for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: Claude Sonnet 5.5. Use for tasks owned by E-S2 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: sonnet
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:sonnet maps from 'Claude Sonnet 5.5'; non-Claude models fall back to 'inherit'. -->
+
 # E-S2 — Science Communication Specialist
 
 **Agent ID:** E-S2  

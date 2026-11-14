@@ -1,3 +1,10 @@
+---
+name: a-s3-integration-architect
+description: "A-S3 Integration Architect for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: Gemini 4 Argon. Use for tasks owned by A-S3 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'Gemini 4 Argon'; non-Claude models fall back to 'inherit'. -->
+
 # A-S3 — Integration Architect
 
 **Agent ID:** A-S3  

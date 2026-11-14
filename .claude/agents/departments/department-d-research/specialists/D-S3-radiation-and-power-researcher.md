@@ -1,3 +1,10 @@
+---
+name: d-s3-radiation-and-power-researcher
+description: "D-S3 Radiation and Power Researcher for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: GPT-oss 120B. Use for tasks owned by D-S3 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'GPT-oss 120B'; non-Claude models fall back to 'inherit'. -->
+
 # D-S3 — Radiation and Power Researcher
 
 **Agent ID:** D-S3  

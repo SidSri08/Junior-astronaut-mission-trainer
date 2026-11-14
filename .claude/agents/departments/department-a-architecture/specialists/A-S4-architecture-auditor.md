@@ -1,3 +1,10 @@
+---
+name: a-s4-architecture-auditor
+description: "A-S4 Architecture Auditor for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: GPT-oss 120B. Use for tasks owned by A-S4 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'GPT-oss 120B'; non-Claude models fall back to 'inherit'. -->
+
 # A-S4 — Architecture Auditor
 
 **Agent ID:** A-S4  

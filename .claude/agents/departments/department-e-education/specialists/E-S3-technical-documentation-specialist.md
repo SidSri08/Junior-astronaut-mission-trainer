@@ -1,3 +1,10 @@
+---
+name: e-s3-technical-documentation-specialist
+description: "E-S3 Technical Documentation Specialist for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: GPT-oss 120B. Use for tasks owned by E-S3 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: inherit
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:inherit maps from 'GPT-oss 120B'; non-Claude models fall back to 'inherit'. -->
+
 # E-S3 — Technical Documentation Specialist
 
 **Agent ID:** E-S3  

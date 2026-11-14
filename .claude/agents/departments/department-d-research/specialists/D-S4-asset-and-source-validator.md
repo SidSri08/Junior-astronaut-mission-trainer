@@ -1,3 +1,10 @@
+---
+name: d-s4-asset-and-source-validator
+description: "D-S4 Asset and Source Validator for the Junior Astronaut Mission Trainer (NASA Space Apps 2026). Project-assigned model: Claude Opus 5.5. Use for tasks owned by D-S4 per protocols/FILE_OWNERSHIP_MATRIX.md."
+model: opus
+---
+<!-- Frontmatter added by A3 during Phase 0 registration. Original prompt below is unchanged. model:opus maps from 'Claude Opus 5.5'; non-Claude models fall back to 'inherit'. -->
+
 # D-S4 — Asset and Source Validator
 
 **Agent ID:** D-S4  
