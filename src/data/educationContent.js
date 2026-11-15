@@ -73,6 +73,14 @@ export const BUILDING_INFO = {
     role: 'Studies Moon rocks and ice to earn Science Points, and sends the Rover to scoop ice from dark craters.',
     howItWorks: 'Uses 4 Electricity (W). Tip: If a mountain shadow blocks the Sun, turn the Lab OFF for a little while to save battery for Air!',
   },
+  comms: {
+    id: 'comms',
+    name: 'Communications Relay',
+    icon: '📡',
+    topic: 'comms',
+    role: 'Beams telemetry across 384,400 km to Earth Mission Control and receives NASA DONKI solar storm warnings.',
+    howItWorks: 'Uses 1 Electricity (W) to boost Science data quality and give early space-weather alerts. Radio signals take ~2.56 seconds round-trip!',
+  },
 };
 
 export const RESOURCE_HELP = {
@@ -152,6 +160,18 @@ export const GLOSSARY = [
   {
     term: '🏔️ South Pole Sunlight Ridges',
     meaning: 'High mountain peaks near the Moon’s South Pole catch low grazing sunlight for most of the year, right next door to dark icy craters!',
+  },
+  {
+    term: '📡 Light-Time Comms Delay',
+    meaning: 'Even at the speed of light, radio messages between Earth and Moon take ~1.28 seconds each way (~2.56 seconds round-trip)!',
+  },
+  {
+    term: '🛰️ NASA DONKI Alerts',
+    meaning: 'Space weather notifications tracking solar flares and particle storms so lunar astronauts know when to shelter.',
+  },
+  {
+    term: '📊 Training Simulation Units',
+    meaning: 'Game numbers like 0–100% tanks and 21W power are scaled for classroom training, while lunar gravity and distance stay real NASA facts.',
   },
 ];
 
@@ -253,6 +273,13 @@ export function getContextualHint(state) {
       kind: 'info',
       mood: '🛡️',
       text: 'Commander tip: Click "Pack Regolith Shield" to add Moon-soil protection before a Solar Storm arrives!',
+    };
+  }
+  if (m.comms && !m.comms.online && !state.power.brownout) {
+    return {
+      kind: 'warn',
+      mood: '📡',
+      text: 'Communications Relay is OFF! Turn it ON so Earth Mission Control receives live telemetry and early solar storm alerts.',
     };
   }
   if (r.research >= 75) {

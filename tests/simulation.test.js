@@ -4,7 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { BALANCE } from '../src/data/gameBalance.js';
-import { FACTS, SOURCES, factsFor, factById } from '../src/data/scienceFacts.js';
+import { FACTS, SOURCES, SIMULATION_UNITS_NOTICE, factsFor, factById } from '../src/data/scienceFacts.js';
+import { SCENARIOS, SCENARIO_ORDER, getAllScenarioMinigameIds } from '../src/data/scenarios.js';
+import { getSpaceWeatherAdvisory, OFFLINE_DONKI_EVENTS, SPACE_WEATHER_SOURCE } from '../src/data/spaceWeatherFeed.js';
 import {
   TUTORIAL_STEPS,
   BUILDING_INFO,
@@ -14,6 +16,15 @@ import {
 } from '../src/data/educationContent.js';
 import { createLeakHunter } from '../src/minigames/leakHunter.js';
 import { createSolarAligner } from '../src/minigames/solarAligner.js';
+import { createSiteSelector } from '../src/minigames/siteSelector.js';
+import { createModuleLayout } from '../src/minigames/moduleLayout.js';
+import { createPowerRouter } from '../src/minigames/powerRouter.js';
+import { createGreenhouseBalance } from '../src/minigames/greenhouseBalance.js';
+import { createShelterResponse } from '../src/minigames/shelterResponse.js';
+import { createShieldBuilder } from '../src/minigames/shieldBuilder.js';
+import { createCommsDelay } from '../src/minigames/commsDelay.js';
+import { rollBoundedTimer, computeTimingMetrics } from '../src/systems/TimerSystem.js';
+import { computeCampaignReport, canStartScenarioRun } from '../src/systems/CampaignSystem.js';
 import { createInitialState, createStore } from '../src/systems/GameState.js';
 import { startEvent, resolveEventDecision } from '../src/systems/MissionEventSystem.js';
 import { saveGame, loadGame, clearSave, validateSavedState } from '../src/systems/SaveSystem.js';
@@ -108,7 +119,7 @@ test('6. Mission events apply once, support player decisions, and minigames reso
   // Trigger oxygenLeak event directly
   const inst = startEvent(state, 'oxygenLeak');
   assert.ok(inst);
-  assert.equal( startEvent(state, 'oxygenLeak'), null, 'Duplicate active event of same type must be blocked');
+  assert.equal(startEvent(state, 'oxygenLeak'), null, 'Duplicate active event of same type must be blocked');
 
   const store = createStore(state);
   // Complete Leak Hunter minigame with success
@@ -295,7 +306,7 @@ test('12. Minigame contracts (createLeakHunter & createSolarAligner) mount tutor
             addEventListener(evt, fn) {
               this.handlers[evt] = fn;
             },
-            setAttribute() {},
+            setAttribute() { },
             click() {
               if (this.handlers.click) this.handlers.click();
             },
@@ -351,4 +362,238 @@ test('12. Minigame contracts (createLeakHunter & createSolarAligner) mount tutor
   sa.destroy();
   assert.equal(saContainer.innerHTML, '');
 });
+
+test('13. 6th interactive module (comms) integrates with PowerSystem, BUILDING_INFO, and hints', () => {
+  const store = createStore(createInitialState({ seed: 13 }));
+  assert.ok(store.getState().modules.comms);
+  assert.ok(BUILDING_INFO.comms);
+  assert.equal(BUILDING_INFO.comms.topic, 'comms');
+  assert.ok(factsFor('comms').length >= 2);
+
+  store.dispatch({ type: 'startMission' });
+  const before = store.getState().power.consumption;
+  const res = store.dispatch({ type: 'toggleModule', moduleId: 'comms' });
+  assert.equal(res.ok, true);
+  assert.equal(store.getState().modules.comms.online, false);
+  assert.equal(store.getState().power.consumption, before - BALANCE.comms.power);
+  const hint = getContextualHint(store.getState());
+  assert.ok(hint.text.includes('Communications Relay'));
+});
+
+test('14. TimerSystem generates bounded deterministic seeded timers and calm speed metrics', () => {
+  const stateA = { rngState: 777 };
+  const stateB = { rngState: 777 };
+  const t1 = rollBoundedTimer(stateA, 22, 32);
+  const t2 = rollBoundedTimer(stateB, 22, 32);
+  assert.equal(t1.limitSec, t2.limitSec);
+  assert.ok(t1.limitSec >= 22 && t1.limitSec <= 32);
+
+  const calmWarn = computeTimingMetrics({ elapsedSec: 25, limitSec: 30, warningThresholdSec: 8 });
+  assert.equal(calmWarn.remainingSec, 5);
+  assert.equal(calmWarn.inWarningWindow, true);
+  assert.equal(calmWarn.timedOut, false);
+  assert.ok(calmWarn.speedScore >= 0.35 && calmWarn.speedScore <= 1);
+
+  const timedOut = computeTimingMetrics({ elapsedSec: 35, limitSec: 30 });
+  assert.equal(timedOut.timedOut, true);
+  assert.equal(timedOut.speedScore, 0.25);
+});
+
+test('15. CampaignSystem completedRuns increments strictly once per full scenario, locks at 5/5, and resets cleanly', () => {
+  const store = createStore(createInitialState({ seed: 15 }));
+  assert.equal(store.getState().campaign.completedRuns, 0);
+
+  // Completing 1 or 2 mini-games in a scenario does NOT increment completedRuns
+  store.dispatch({ type: 'startScenario', scenarioId: 'siteSetup' });
+  store.dispatch({
+    type: 'completeScenarioMiniGame',
+    scenarioId: 'siteSetup',
+    gameId: 'siteSelector',
+    success: true,
+    qualityScore: 0.9,
+    speedScore: 0.85,
+  });
+  assert.equal(store.getState().campaign.completedRuns, 0);
+
+  // Complete remaining 2 scenario mini-games -> completedRuns reaches 1 once
+  store.dispatch({
+    type: 'completeScenarioMiniGame',
+    scenarioId: 'siteSetup',
+    gameId: 'moduleLayout',
+    success: true,
+    qualityScore: 0.85,
+    speedScore: 0.8,
+  });
+  store.dispatch({
+    type: 'completeScenarioMiniGame',
+    scenarioId: 'siteSetup',
+    gameId: 'solarAligner',
+    success: true,
+    qualityScore: 0.92,
+    speedScore: 0.88,
+  });
+  assert.equal(store.getState().campaign.completedRuns, 1);
+
+  // Calling finishScenarioRun again for same run token MUST NOT double-count
+  const dup = store.dispatch({ type: 'finishScenarioRun' });
+  assert.equal(dup.code, 'ALREADY_COMPLETED');
+  assert.equal(store.getState().campaign.completedRuns, 1);
+
+  // Complete runs 2 through 5 -> triggers evacuation ending strictly at 5
+  const cycle = ['systemsBalance', 'radiationComms', 'siteSetup', 'systemsBalance'];
+  for (const scId of cycle) {
+    store.dispatch({ type: 'startScenario', scenarioId: scId });
+    for (const mg of SCENARIOS[scId].minigames) {
+      store.dispatch({
+        type: 'completeScenarioMiniGame',
+        scenarioId: scId,
+        gameId: mg.gameId,
+        success: true,
+        qualityScore: 0.88,
+        speedScore: 0.82,
+      });
+    }
+  }
+
+  const endState = store.getState();
+  assert.equal(endState.campaign.completedRuns, 5);
+  assert.equal(endState.campaign.endingTriggered, true);
+  assert.equal(canStartScenarioRun(endState.campaign), false);
+
+  // Attempting a 6th scenario run must be rejected cleanly
+  const sixth = store.dispatch({ type: 'startScenario', scenarioId: 'radiationComms' });
+  assert.equal(sixth.ok, false);
+  assert.equal(sixth.code, 'CAMPAIGN_ENDED');
+
+  const report = computeCampaignReport(endState.campaign);
+  assert.equal(report.completedRuns, 5);
+  assert.equal(report.history.length, 5);
+  assert.ok(report.overall >= 70);
+
+  // Reset restores cleanly to 0 / 5
+  store.dispatch({ type: 'resetCampaign' });
+  assert.equal(store.getState().campaign.completedRuns, 0);
+  assert.equal(store.getState().campaign.endingTriggered, false);
+});
+
+test('16. Scenario decisions apply real engineering trade-offs & persistent carry-overs', () => {
+  const store = createStore(createInitialState({ seed: 16 }));
+  const waterBefore = store.getState().resources.water;
+  const batteryBefore = store.getState().resources.battery;
+
+  const res = store.dispatch({
+    type: 'applyScenarioDecision',
+    scenarioId: 'siteSetup',
+    choiceId: 'ridgePower',
+  });
+  assert.equal(res.ok, true);
+  assert.ok(store.getState().resources.battery > batteryBefore);
+  assert.ok(store.getState().resources.water < waterBefore);
+  assert.equal(store.getState().campaign.carryOvers.siteChoice, 'ridgePower');
+});
+
+test('17. NASA DONKI space weather feed & explicit Simulation Units labeling work offline', () => {
+  assert.ok(OFFLINE_DONKI_EVENTS.length >= 4);
+  assert.equal(SPACE_WEATHER_SOURCE.earthMoonDistanceKm, 384400);
+  assert.ok(SIMULATION_UNITS_NOTICE.includes('Training Simulation Units'));
+
+  const quiet = getSpaceWeatherAdvisory({ seed: 2, day: 1, activeEvents: [] });
+  assert.ok(quiet && quiet.id && quiet.summaryKid);
+  const storm = getSpaceWeatherAdvisory({
+    seed: 2,
+    day: 3,
+    activeEvents: [{ eventId: 'solarStorm', phase: 'active' }],
+  });
+  assert.equal(storm.eventType, 'SEP');
+});
+
+test('18. All 7 scenario mini-games render, prevent double-submit on close, and clean up on destroy()', () => {
+  function makeMockContainer() {
+    const listeners = new Map();
+    return {
+      innerHTML: '',
+      querySelector(selector) {
+        if (!this.innerHTML) return null;
+        if (!listeners.has(selector)) {
+          listeners.set(selector, {
+            className: '',
+            textContent: '',
+            hidden: false,
+            style: {},
+            dataset: {},
+            handlers: {},
+            classList: { toggle() { }, add() { }, remove() { } },
+            addEventListener(evt, fn) {
+              this.handlers[evt] = fn;
+            },
+            setAttribute() { },
+            click() {
+              if (this.handlers.click) this.handlers.click();
+            },
+          });
+        }
+        return listeners.get(selector);
+      },
+      querySelectorAll() {
+        return [];
+      },
+    };
+  }
+
+  const factories = [
+    ['siteSelector', createSiteSelector],
+    ['moduleLayout', createModuleLayout],
+    ['powerRouter', createPowerRouter],
+    ['greenhouseBalance', createGreenhouseBalance],
+    ['shelterResponse', createShelterResponse],
+    ['shieldBuilder', createShieldBuilder],
+    ['commsDelay', createCommsDelay],
+  ];
+
+  assert.equal(getAllScenarioMinigameIds().length, 9);
+
+  for (const [id, factory] of factories) {
+    const container = makeMockContainer();
+    let calls = 0;
+    let payload = null;
+    const ctrl = factory({
+      container,
+      context: { scenarioId: 'siteSetup', timerMinSec: 25, timerMaxSec: 35, timerLimitSec: 30 },
+      onComplete: (p) => {
+        calls += 1;
+        payload = p;
+      },
+    });
+    ctrl.start();
+    assert.ok(container.innerHTML.includes('Window:'));
+    const closeBtn = container.querySelector('[data-action="close"]');
+    closeBtn.click();
+    closeBtn.click(); // Double-submit guard check
+    assert.equal(calls, 1, `${id} fired onComplete twice!`);
+    assert.equal(payload.gameId, id);
+    assert.equal(typeof payload.qualityScore, 'number');
+    assert.equal(typeof payload.speedScore, 'number');
+    ctrl.destroy();
+    assert.equal(container.innerHTML, '');
+  }
+});
+
+test('19. SaveSystem gracefully hydrates legacy schema v1 saves missing comms, settings, or campaign fields', () => {
+  const storage = makeMockStorage();
+  const base = createInitialState({ seed: 19 });
+  delete base.modules.comms;
+  delete base.settings;
+  delete base.cinematics;
+  delete base.campaign;
+
+  assert.equal(validateSavedState(base).ok, true);
+  saveGame(base, storage);
+  const loaded = loadGame(storage);
+  assert.equal(loaded.ok, true);
+  assert.ok(loaded.state.modules.comms);
+  assert.ok(loaded.state.settings);
+  assert.ok(loaded.state.cinematics);
+  assert.equal(loaded.state.campaign.completedRuns, 0);
+});
+
 

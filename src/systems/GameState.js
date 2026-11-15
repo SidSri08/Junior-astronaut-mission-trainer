@@ -1,6 +1,8 @@
 // C-S1 — Canonical GameState factory and store (single source of truth).
 
 import { BALANCE } from '../data/gameBalance.js';
+import { createProgression, recordTaskAchievement } from './ProgressionSystem.js';
+import { createInitialCampaignState } from './CampaignSystem.js';
 import { computePower } from './PowerSystem.js';
 import { advanceSimulationStep, applyPlayerAction } from './ResourceSystem.js';
 
@@ -71,7 +73,31 @@ export function createInitialState({ seed = 20261114 } = {}) {
         growth: 25,
       },
       lab: { health: s.moduleHealth, online: true },
+      comms: { health: s.moduleHealth, online: true, signalQuality: 1 },
     },
+    settings: {
+      muted: false,
+      volume: 0.75,
+      reducedMotion: false,
+      lowQuality: false,
+      captionsEnabled: true,
+    },
+    cinematics: {
+      active: 'none',
+      stage: 'idle',
+      label: '',
+      title: '',
+      subtitle: '',
+      progress: 0,
+      skipped: false,
+      replayRequested: false,
+      setupComplete: false,
+      caption: '',
+      landingSeen: false,
+    },
+    campaign: createInitialCampaignState(),
+    progression: createProgression(),
+    story: { seen: [] },
     shieldLevel: 0,
     inventory: {
       repairKits: s.repairKits,
@@ -137,6 +163,10 @@ export function createStore(initialState = createInitialState()) {
     dispatch(action) {
       const result = applyPlayerAction(state, action, BALANCE);
       if (result.ok) {
+        if (['completeMinigame', 'completeScenarioMiniGame'].includes(action.type) && !action.cancelled) {
+          const token = action.attemptToken || `${state.campaign?.activeRun?.runToken}:${action.gameId}`;
+          recordTaskAchievement(state, action, token);
+        }
         notify({ type: 'action', action, result });
       }
       return result;

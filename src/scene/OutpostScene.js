@@ -1,28 +1,14 @@
-// Main Three.js Lunar South-Pole Outpost Scene (B-S1).
+// Main Three.js Lunar South-Pole Outpost Scene Orchestrator.
+// Composes terrain, procedural buildings, and modular Act 1 / interaction controllers
+// inside one continuous WebGL scene without reloads or asset duplication.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import {
-  clamp,
-  damp,
-  num,
-  getGlowTexture,
-  makeGlow,
-  disposeObject,
-} from './sceneUtils.js';
-import {
-  createLunarTerrain,
-  createSkyAndCelestials,
-  sampleTerrainHeight,
-} from './terrain.js';
-import {
-  INTERACTIVE_BUILDING_IDS,
-  BUILDING_LAYOUT,
-  createOutpostBuildings,
-} from './buildings.js';
-
-const OVERVIEW_TARGET = new THREE.Vector3(0, 1.4, 0);
-const OVERVIEW_CAMERA = new THREE.Vector3(0, 18.5, 29.5);
-const SUN_ELEVATION_RAD = THREE.MathUtils.degToRad(7.5); // Low ~7.5° lunar south-pole sun
+import { clamp, num, disposeObject } from './sceneUtils.js';
+import { createLunarTerrain, createSkyAndCelestials, sampleTerrainHeight } from './terrain.js';
+import { INTERACTIVE_BUILDING_IDS, BUILDING_LAYOUT, createOutpostBuildings } from './buildings.js';
+import { createEnvironmentController } from './cinematics/EnvironmentController.js';
+import { createCameraController, OVERVIEW_CAMERA, OVERVIEW_TARGET } from './cinematics/CameraController.js';
+import { createCinematicController } from './cinematics/CinematicController.js';
 
 function createRingIndicator(innerRadius, outerRadius, colorHex, opacity) {
   const geo = new THREE.RingGeometry(innerRadius, outerRadius, 48);
@@ -41,191 +27,54 @@ function createRingIndicator(innerRadius, outerRadius, colorHex, opacity) {
   return { mesh, mat };
 }
 
-function createSolarStormParticles() {
-  const count = 260;
-  const positions = new Float32Array(count * 3);
-  const velocities = new Float32Array(count * 3);
-
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 65;
-    positions[i * 3 + 1] = 1 + Math.random() * 24;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 65;
-
-    velocities[i * 3] = -18 - Math.random() * 14;
-    velocities[i * 3 + 1] = -3.5 - Math.random() * 3;
-    velocities[i * 3 + 2] = 10 + Math.random() * 8;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-  const mat = new THREE.PointsMaterial({
-    map: getGlowTexture(),
-    color: 0xff6b35,
-    size: 1.35,
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-
-  const points = new THREE.Points(geo, mat);
-  points.visible = false;
-
-  function update(dt, active, intensity = 1) {
-    mat.opacity = damp(mat.opacity, active ? 0.85 * intensity : 0, 5, dt);
-    points.visible = mat.opacity > 0.02;
-    if (!points.visible) return;
-
-    const posAttr = geo.attributes.position;
-    for (let i = 0; i < count; i++) {
-      let x = posAttr.getX(i) + velocities[i * 3] * dt;
-      let y = posAttr.getY(i) + velocities[i * 3 + 1] * dt;
-      let z = posAttr.getZ(i) + velocities[i * 3 + 2] * dt;
-
-      if (y < 0.2 || x < -35 || z > 35) {
-        x = 28 + Math.random() * 18;
-        y = 8 + Math.random() * 18;
-        z = -28 + (Math.random() - 0.5) * 36;
-      }
-      posAttr.setXYZ(i, x, y, z);
-    }
-    posAttr.needsUpdate = true;
-  }
-
-  return { points, update };
-}
-
-function createOxygenLeakParticles() {
-  const count = 48;
-  const positions = new Float32Array(count * 3);
-  const ages = new Float32Array(count);
-
-  for (let i = 0; i < count; i++) {
-    ages[i] = Math.random();
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-  const mat = new THREE.PointsMaterial({
-    map: getGlowTexture(),
-    color: 0xdff9fb,
-    size: 1.4,
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-
-  const points = new THREE.Points(geo, mat);
-  // Position at habitat airlock seam
-  const habPos = BUILDING_LAYOUT.habitat;
-  points.position.set(habPos.x + 1.15, sampleTerrainHeight(habPos.x, habPos.z) + 1.85, habPos.z + 2.85);
-  points.visible = false;
-
-  function update(dt, leaking) {
-    mat.opacity = damp(mat.opacity, leaking ? 0.85 : 0, 6, dt);
-    points.visible = mat.opacity > 0.02;
-    if (!points.visible) return;
-
-    const posAttr = geo.attributes.position;
-    for (let i = 0; i < count; i++) {
-      ages[i] += dt * (0.85 + (i % 5) * 0.15);
-      if (ages[i] >= 1) ages[i] -= 1;
-
-      const t = ages[i];
-      const spread = t * 1.4;
-      const angle = i * 2.39996;
-      const x = Math.cos(angle) * spread * 0.45 + t * 0.9;
-      const y = t * 2.6;
-      const z = Math.sin(angle) * spread * 0.45 + t * 1.3;
-      posAttr.setXYZ(i, x, y, z);
-    }
-    posAttr.needsUpdate = true;
-  }
-
-  return { points, update };
-}
-
-function createAmbientLunarDust() {
-  const count = 85;
-  const positions = new Float32Array(count * 3);
-  const phases = new Float32Array(count);
-
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 42;
-    positions[i * 3 + 1] = 0.35 + Math.random() * 5.5;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 42;
-    phases[i] = Math.random() * Math.PI * 2;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-  const mat = new THREE.PointsMaterial({
-    map: getGlowTexture(),
-    color: 0xcbd5e1,
-    size: 0.42,
-    transparent: true,
-    opacity: 0.32,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-
-  const points = new THREE.Points(geo, mat);
-
-  function update(dt, elapsed) {
-    const posAttr = geo.attributes.position;
-    for (let i = 0; i < count; i++) {
-      const p = phases[i];
-      let x = posAttr.getX(i) + Math.sin(elapsed * 0.4 + p) * 0.22 * dt;
-      let y = posAttr.getY(i) + (0.04 + Math.cos(elapsed * 0.55 + p) * 0.14) * dt;
-      let z = posAttr.getZ(i) + Math.cos(elapsed * 0.35 + p) * 0.22 * dt;
-      if (x < -21) x = 21;
-      if (x > 21) x = -21;
-      if (y < 0.25) y = 5.6;
-      if (y > 5.8) y = 0.35;
-      if (z < -21) z = 21;
-      if (z > 21) z = -21;
-      posAttr.setXYZ(i, x, y, z);
-    }
-    posAttr.needsUpdate = true;
-  }
-
-  return { points, update };
-}
-
-export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
+export function createOutpostScene({
+  canvas,
+  onSelectBuilding,
+  onContextLost,
+  onContextRestored,
+  onAudioCue,
+  onCinematicProgress,
+} = {}) {
   if (!canvas) {
     throw new Error('createOutpostScene requires a canvas element');
   }
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    powerPreference: 'high-performance',
-  });
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+  } catch (err) {
+    throw new Error(`WebGL initialization failed: ${err?.message || err}`);
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.16;
+
+  let contextLost = false;
+  const handleContextLost = (e) => {
+    e.preventDefault();
+    contextLost = true;
+    onAudioCue?.('stopAll');
+    if (typeof onContextLost === 'function') onContextLost();
+  };
+  const handleContextRestored = () => {
+    contextLost = false;
+    if (typeof onContextRestored === 'function') onContextRestored();
+  };
+  canvas.addEventListener('webglcontextlost', handleContextLost);
+  canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
   const scene = new THREE.Scene();
-  const baseSkyColor = new THREE.Color(0x03050a);
-  const warningSkyColor = new THREE.Color(0x281706);
-  const stormSkyColor = new THREE.Color(0x361108);
-  const currentSkyColor = baseSkyColor.clone();
-  const scratchSkyColor = baseSkyColor.clone();
-  scene.background = currentSkyColor;
-  scene.fog = new THREE.FogExp2(0x070a12, 0.0045);
-
   const initialWidth = canvas.clientWidth || window.innerWidth || 1024;
   const initialHeight = canvas.clientHeight || window.innerHeight || 768;
   renderer.setSize(initialWidth, initialHeight, false);
 
-  const camera = new THREE.PerspectiveCamera(45, initialWidth / initialHeight, 0.5, 420);
+  const camera = new THREE.PerspectiveCamera(46, initialWidth / initialHeight, 0.6, 1400);
   camera.position.copy(OVERVIEW_CAMERA);
 
   const controls = new OrbitControls(camera, canvas);
@@ -237,35 +86,20 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   controls.minPolarAngle = 0.14;
   controls.maxPolarAngle = Math.PI * 0.465;
   controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.32;
+  controls.autoRotateSpeed = 0.14;
 
-  let userControllingCamera = false;
-  let cameraTransitioning = false;
-  const desiredTarget = OVERVIEW_TARGET.clone();
-  const desiredCameraPos = OVERVIEW_CAMERA.clone();
-
-  const onControlsStart = () => {
-    userControllingCamera = true;
-    cameraTransitioning = false;
-    controls.autoRotate = false;
-  };
-  const onControlsEnd = () => {
-    userControllingCamera = false;
-    if (!focusedBuildingId) {
-      controls.autoRotate = true;
-    }
-  };
-  controls.addEventListener('start', onControlsStart);
-  controls.addEventListener('end', onControlsEnd);
-
-  // Lighting: South-Pole low-elevation directional Sun + Hemisphere + Ambient fill
-  const hemiLight = new THREE.HemisphereLight(0x7c96c4, 0x2d313b, 0.62);
+  // Lighting: Low-elevation South-Pole directional Sun + Hemisphere + Earthshine fill
+  const hemiLight = new THREE.HemisphereLight(0x90b8f8, 0x3b4252, 0.78);
   scene.add(hemiLight);
 
-  const ambientLight = new THREE.AmbientLight(0x4a5568, 0.45);
+  const ambientLight = new THREE.AmbientLight(0x556888, 0.52);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff3db, 2.5);
+  const earthFillLight = new THREE.DirectionalLight(0x60a5fa, 0.55);
+  earthFillLight.position.set(26, 15.5, -104);
+  scene.add(earthFillLight);
+
+  const sunLight = new THREE.DirectionalLight(0xfff5e0, 2.85);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
   sunLight.shadow.camera.near = 20;
@@ -278,7 +112,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   sunLight.shadow.bias = -0.0005;
   scene.add(sunLight);
 
-  // Terrain, Sky, and Buildings
+  // Terrain, Sky, Buildings & Modular Controllers
   const terrainGroup = createLunarTerrain();
   scene.add(terrainGroup);
 
@@ -288,22 +122,9 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   const buildings = createOutpostBuildings();
   scene.add(buildings.group);
 
-  // Event particle & flash effects + ambient floating lunar dust motes
-  const stormParticles = createSolarStormParticles();
-  scene.add(stormParticles.points);
-
-  const leakParticles = createOxygenLeakParticles();
-  scene.add(leakParticles.points);
-
-  const ambientDust = createAmbientLunarDust();
-  scene.add(ambientDust.points);
-
-  const meteorFlashSprite = makeGlow(0xfff2cc, 16, 0);
-  meteorFlashSprite.position.set(1.5, 4.5, -1.5);
-  scene.add(meteorFlashSprite);
-  const meteorPointLight = new THREE.PointLight(0xffd27d, 0, 32);
-  meteorPointLight.position.copy(meteorFlashSprite.position);
-  scene.add(meteorPointLight);
+  const envController = createEnvironmentController({ scene, sunLight, sky });
+  const cameraController = createCameraController({ camera, controls });
+  const cinematicController = createCinematicController({ onAudioCue });
 
   // Hover & Selection Rings
   const hoverRing = createRingIndicator(1.0, 1.16, 0x54d2ff, 0.72);
@@ -322,13 +143,58 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     ring.mesh.visible = true;
   }
 
-  // State tracking
   let latestSnapshot = null;
   let elapsedClock = 0;
   let hoveredBuildingId = null;
-  let focusedBuildingId = null;
-  let meteorFlashTimer = 0;
   const seenMeteorInstances = new Set();
+
+  function setLowQuality(enabled) {
+    const low = Boolean(enabled);
+    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = !low;
+    sunLight.castShadow = !low;
+    envController.setLowQuality(low);
+  }
+
+  function focusBuilding(buildingId = null) {
+    const reducedMotion = Boolean(latestSnapshot?.settings?.reducedMotion);
+    const validId = cameraController.focusBuilding(buildingId, { reducedMotion });
+    if (validId) {
+      placeRingUnderBuilding(selectRing, validId, 1.04);
+    } else {
+      selectRing.mesh.visible = false;
+    }
+  }
+
+  function startCinematic(mode, opts = {}) {
+    hoveredBuildingId = null;
+    hoverRing.mesh.visible = false;
+    focusBuilding(null);
+    controls.enabled = false;
+    cinematicController.start(mode, {
+      ...opts,
+      reducedMotion: Boolean(opts.reducedMotion ?? latestSnapshot?.settings?.reducedMotion),
+      onComplete: (doneMode, info) => {
+        controls.enabled = true;
+        if (info?.skipped) {
+          cameraController.snapToOverview();
+        } else {
+          cameraController.transitionToOverview({
+            reducedMotion: Boolean(latestSnapshot?.settings?.reducedMotion),
+          });
+        }
+        onCinematicProgress?.(1);
+        opts.onComplete?.(doneMode, info);
+      },
+    });
+  }
+
+  function skipCinematic() {
+    if (!cinematicController.isActive()) return;
+    cinematicController.skip();
+    controls.enabled = true;
+    cameraController.snapToOverview();
+  }
 
   // Pointer & Raycasting
   const raycaster = new THREE.Raycaster();
@@ -336,6 +202,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   let pointerDownPos = null;
 
   function getInteractiveBuildingAtPointer(clientX, clientY) {
+    if (cinematicController.isActive()) return null;
     const rect = canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
     pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -362,6 +229,14 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   }
 
   function onPointerMove(e) {
+    if (cinematicController.isActive()) {
+      if (hoveredBuildingId) {
+        hoveredBuildingId = null;
+        hoverRing.mesh.visible = false;
+      }
+      canvas.style.cursor = 'default';
+      return;
+    }
     const hitId = getInteractiveBuildingAtPointer(e.clientX, e.clientY);
     if (hitId !== hoveredBuildingId) {
       hoveredBuildingId = hitId;
@@ -376,14 +251,14 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     const dy = e.clientY - pointerDownPos.y;
     pointerDownPos = null;
 
-    // Ignore drags: only fire selection if pointer moved < 5px
-    if (Math.hypot(dx, dy) >= 5) return;
+    if (Math.hypot(dx, dy) >= 5 || cinematicController.isActive()) return;
 
     const hitId = getInteractiveBuildingAtPointer(e.clientX, e.clientY);
     if (hitId && INTERACTIVE_BUILDING_IDS.includes(hitId)) {
-      if (typeof onSelectBuilding === 'function') {
-        onSelectBuilding(hitId);
-      }
+      onSelectBuilding?.(hitId);
+    } else if (cameraController.getFocusedBuildingId()) {
+      // Clicking empty lunar ground outside modules smoothly returns to Overview
+      onSelectBuilding?.(null);
     }
   }
 
@@ -402,161 +277,72 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     if (!snapshot || typeof snapshot !== 'object') return;
     latestSnapshot = snapshot;
 
-    // Detect micrometeoroid event trigger for brief flash
     const events = Array.isArray(snapshot.activeEvents) ? snapshot.activeEvents : [];
     for (const ev of events) {
       if (ev && ev.eventId === 'micrometeoroid') {
         const key = ev.instanceId || `${ev.eventId}_${ev.startedAt || 0}`;
         if (!seenMeteorInstances.has(key)) {
           seenMeteorInstances.add(key);
-          meteorFlashTimer = 1.35;
+          envController.triggerMeteorFlash(1.35);
         }
       }
     }
-  }
-
-  function focusBuilding(buildingId = null) {
-    const validId = buildingId && BUILDING_LAYOUT[buildingId] ? buildingId : null;
-    focusedBuildingId = validId;
-    userControllingCamera = false;
-
-    if (validId) {
-      const spec = BUILDING_LAYOUT[validId];
-      const groundY = sampleTerrainHeight(spec.x, spec.z);
-      desiredTarget.set(spec.x, groundY + spec.focusHeight, spec.z);
-
-      // Position camera at a pleasant 3/4 viewing angle relative to the building
-      const angle = Math.atan2(spec.x, spec.z + 0.01) * 0.35;
-      const dist = spec.camDist || 12.5;
-      desiredCameraPos.set(
-        spec.x + Math.sin(angle) * dist * 0.65,
-        groundY + spec.focusHeight + dist * 0.48,
-        spec.z + Math.cos(angle) * dist * 0.92
-      );
-      controls.autoRotate = false;
-      placeRingUnderBuilding(selectRing, validId, 1.04);
-    } else {
-      desiredTarget.copy(OVERVIEW_TARGET);
-      desiredCameraPos.copy(OVERVIEW_CAMERA);
-      controls.autoRotate = true;
-      selectRing.mesh.visible = false;
-    }
-
-    cameraTransitioning = true;
   }
 
   function render(deltaSeconds = 1 / 60) {
     const dt = clamp(num(deltaSeconds, 1 / 60), 0.001, 0.1);
     elapsedClock += dt;
 
-    // 1. Sun position & intensity (low south-pole horizon sweep)
-    const timeOfDay = num(latestSnapshot?.mission?.timeOfDay, 0.22);
-    const isDaylight = latestSnapshot?.mission?.isDaylight !== false;
-
-    const events = Array.isArray(latestSnapshot?.activeEvents)
-      ? latestSnapshot.activeEvents
-      : [];
-    const stormEvent = events.find((e) => e?.eventId === 'solarStorm');
-    const hasLongShadow = events.some((e) => e?.eventId === 'longShadow');
-    const hasOxygenLeak = events.some((e) => e?.eventId === 'oxygenLeak');
-    const hasActiveMeteor = events.some(
-      (e) => e?.eventId === 'micrometeoroid' && e.phase === 'active'
-    );
-
-    // Sweep sun gently along the northern/western horizon so shadows stay long and dramatic
-    const sunAzimuth = -0.55 + Math.sin(timeOfDay * Math.PI * 2) * 0.65;
-    const sunDist = 135;
-    const cosEl = Math.cos(SUN_ELEVATION_RAD);
-    const sinEl = Math.sin(SUN_ELEVATION_RAD);
-    const sunX = Math.sin(sunAzimuth) * cosEl * sunDist;
-    const sunY = sinEl * sunDist;
-    const sunZ = -Math.cos(sunAzimuth) * cosEl * sunDist;
-
-    sunLight.position.set(sunX, sunY, sunZ);
-    sky.sunVisual.position.set(sunX * 1.15, sunY * 1.15, sunZ * 1.15);
-
-    let targetSunIntensity = 2.55;
-    if (!isDaylight || hasLongShadow) {
-      targetSunIntensity = 0.28;
-    } else if (stormEvent?.phase === 'active') {
-      targetSunIntensity = 2.95;
-    }
-    sunLight.intensity = damp(sunLight.intensity, targetSunIntensity, 4, dt);
-
-    const haloScale = !isDaylight || hasLongShadow ? 0.45 : 1.0;
-    sky.sunHaloInner.scale.setScalar(28 * haloScale);
-    sky.sunHaloOuter.scale.setScalar(58 * haloScale);
-
-    // 2. Solar storm sky tint & particles
-    const stormPulse = 0.5 + 0.5 * Math.sin(elapsedClock * 4.5);
-    let targetSky = baseSkyColor;
-    if (stormEvent?.phase === 'warning') {
-      targetSky = scratchSkyColor.copy(baseSkyColor).lerp(warningSkyColor, 0.45 + 0.35 * stormPulse);
-    } else if (stormEvent?.phase === 'active') {
-      targetSky = scratchSkyColor.copy(baseSkyColor).lerp(stormSkyColor, 0.72 + 0.25 * stormPulse);
-    }
-    currentSkyColor.lerp(targetSky, 1 - Math.exp(-4 * dt));
-    scene.fog.color.copy(currentSkyColor);
-
-    stormParticles.update(
-      dt,
-      Boolean(stormEvent),
-      stormEvent?.phase === 'active' ? 1.0 : 0.35
-    );
-
-    // 3. Oxygen leak vapor puff at habitat
-    leakParticles.update(dt, hasOxygenLeak);
-
-    // 4. Micrometeoroid impact flash
-    if (hasActiveMeteor && meteorFlashTimer <= 0) {
-      meteorFlashTimer = 0.65;
-    }
-    if (meteorFlashTimer > 0) {
-      meteorFlashTimer = Math.max(0, meteorFlashTimer - dt);
-      const flash = Math.sin((meteorFlashTimer / 1.35) * Math.PI) * 1.8;
-      meteorFlashSprite.material.opacity = clamp(flash, 0, 1);
-      meteorPointLight.intensity = Math.max(0, flash * 8);
-    } else {
-      meteorFlashSprite.material.opacity = 0;
-      meteorPointLight.intensity = 0;
-    }
-
-    // 5. Rotate Earth slowly, twinkle stars, drift lunar dust & animate rings
-    sky.earthMesh.rotation.y += dt * 0.06;
-    if (Array.isArray(sky.twinkleLayers)) {
-      sky.twinkleLayers.forEach((tMat, idx) => {
-        tMat.opacity = 0.42 + 0.48 * Math.sin(elapsedClock * (2.2 + idx * 1.1) + idx * 2.1);
-      });
-    }
-    ambientDust.update(dt, elapsedClock);
     if (hoverRing.mesh.visible) {
       hoverRing.mat.opacity = 0.55 + 0.25 * Math.sin(elapsedClock * 5.0);
     }
-    if (selectRing.mesh.visible) {
-      const s = BUILDING_LAYOUT[focusedBuildingId]?.radius || 3.5;
+    const activeFocusId = cameraController.getFocusedBuildingId();
+    if (selectRing.mesh.visible && activeFocusId) {
+      const s = BUILDING_LAYOUT[activeFocusId]?.radius || 3.5;
       const breath = 1.02 + 0.04 * Math.sin(elapsedClock * 3.5);
       selectRing.mesh.scale.setScalar(s * breath);
     }
 
-    // 6. Update all buildings, modules, beacons, and rover
-    buildings.updateBuildings(latestSnapshot, dt, elapsedClock, sunAzimuth);
+    let sceneFx = {
+      focusedId: activeFocusId,
+      setupStage: 6,
+      landerAltitude: 0,
+      thrusterPower: 0,
+      dustPlumeIntensity: 0,
+      evacuating: false,
+      boarded: false,
+    };
+    let orbitalVisibility = 0;
 
-    // 7. Smooth camera focus lerp & OrbitControls update
-    if (!userControllingCamera) {
-      controls.target.lerp(desiredTarget, 1 - Math.exp(-6 * dt));
-    }
-    if (cameraTransitioning && !userControllingCamera) {
-      camera.position.lerp(desiredCameraPos, 1 - Math.exp(-5 * dt));
-      if (
-        camera.position.distanceToSquared(desiredCameraPos) < 0.04 &&
-        controls.target.distanceToSquared(desiredTarget) < 0.02
-      ) {
-        cameraTransitioning = false;
+    if (cinematicController.isActive()) {
+      const stepRes = cinematicController.step(dt);
+      if (stepRes.active || stepRes.sceneFx) {
+        sceneFx = stepRes.sceneFx;
+        orbitalVisibility = num(stepRes.orbitalVisibility, 0);
+        if (typeof stepRes.progress === 'number') {
+          onCinematicProgress?.(stepRes.progress);
+        }
+        if (stepRes.cameraCue) {
+          cameraController.applyCinematicFrame({ ...stepRes.cameraCue, dt });
+        }
       }
     }
-    controls.update();
 
-    renderer.render(scene, camera);
+    const { sunAzimuth } = envController.update({
+      snapshot: latestSnapshot,
+      dt,
+      elapsedClock,
+      sceneFx,
+      focusedBuildingId: cinematicController.isActive() ? null : activeFocusId,
+      orbitalVisibility,
+    });
+
+    buildings.updateBuildings(latestSnapshot, dt, elapsedClock, sunAzimuth, sceneFx);
+    cameraController.updateInteractive(dt, { cinematicActive: cinematicController.isActive() });
+
+    if (!contextLost) {
+      renderer.render(scene, camera);
+    }
   }
 
   function resize(width, height) {
@@ -568,12 +354,14 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   }
 
   function destroy() {
+    onAudioCue?.('stopAll');
+    canvas.removeEventListener('webglcontextlost', handleContextLost);
+    canvas.removeEventListener('webglcontextrestored', handleContextRestored);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', onPointerUp);
     canvas.removeEventListener('pointerleave', onPointerLeave);
-    controls.removeEventListener('start', onControlsStart);
-    controls.removeEventListener('end', onControlsEnd);
+    cameraController.dispose();
     controls.dispose();
     disposeObject(scene);
     renderer.renderLists?.dispose?.();
@@ -585,6 +373,10 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     render,
     resize,
     focusBuilding,
+    getFocusedBuildingId: () => cameraController.getFocusedBuildingId(),
+    startCinematic,
+    skipCinematic,
+    setLowQuality,
     destroy,
   };
 }

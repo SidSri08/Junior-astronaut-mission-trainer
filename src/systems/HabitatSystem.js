@@ -1,8 +1,15 @@
 // C-S1 — habitat and equipment wear, dust build-up.
 import { clamp, addLog } from './util.js';
 
-const MODULES = ['lifeSupport', 'solar', 'greenhouse', 'lab'];
-const NAMES = { habitat: 'Habitat', lifeSupport: 'Life Support', solar: 'Solar Array', greenhouse: 'Greenhouse', lab: 'Science Lab' };
+const MODULES = ['lifeSupport', 'solar', 'greenhouse', 'lab', 'comms'];
+const NAMES = {
+  habitat: 'Habitat',
+  lifeSupport: 'Life Support',
+  solar: 'Solar Array',
+  greenhouse: 'Greenhouse',
+  lab: 'Science Lab',
+  comms: 'Communications Relay',
+};
 
 export function tickHabitat(state, dt, B) {
   const h = state.modules.habitat;

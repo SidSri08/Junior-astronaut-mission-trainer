@@ -23,6 +23,7 @@ export function computePower(state, B) {
     if (modules.lifeSupport.online) consumption += B.lifeSupport.power;
     if (modules.greenhouse.online) consumption += B.greenhouse.power;
     if (modules.lab.online && !crew.sheltered) consumption += B.lab.power;
+    if (modules.comms && modules.comms.online) consumption += B.comms.power;
   }
   return { generation, consumption, net: generation - consumption };
 }

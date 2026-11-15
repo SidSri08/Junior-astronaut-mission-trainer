@@ -75,7 +75,22 @@ export const SOURCES = {
     url: 'https://www.nasa.gov/humans-in-space/spacesuits/',
     accessed: '2026-11-14',
   },
+  S13: {
+    title: 'NASA CCMC Space Weather Database Of Notifications, Knowledge, Information (DONKI)',
+    publisher: 'NASA Goddard Space Flight Center',
+    url: 'https://ccmc.gsfc.nasa.gov/tools/DONKI/',
+    accessed: '2026-11-15',
+  },
+  S14: {
+    title: 'Space Communications and Navigation (SCaN) — Lunar Relay & Light-Time Delay',
+    publisher: 'NASA',
+    url: 'https://www.nasa.gov/directorates/somd/space-communications-navigation-program/',
+    accessed: '2026-11-15',
+  },
 };
+
+export const SIMULATION_UNITS_NOTICE =
+  'Training Simulation Units: Base tank %, watt scales, and 7-day/5-run mission timers are scaled for educational play, while physical lunar gravity, day length, distance, and light-time constants remain grounded in NASA sources.';
 
 export const FACTS = [
   // --- MOON (4 facts) ---
@@ -314,6 +329,24 @@ export const FACTS = [
     kidText: 'NASA is testing robot 3D printers that melt or bake Moon dirt into sturdy walls, landing pads, and protective domes.',
     sourceIds: ['S06', 'S11'],
     caveat: 'NASA’s MMPACT project explores laser/microwave sintering and regolith-based concrete to construct infrastructure using local lunar materials.',
+  },
+
+  // --- COMMUNICATIONS & SPACE WEATHER (2 facts) ---
+  {
+    id: 'F-COM-01',
+    topic: 'comms',
+    label: 'REAL_SCIENTIFIC_FACT',
+    kidText: 'Because the Moon averages 384,400 km away, radio messages take about 1.3 seconds each way—so conversations wait ~2.6 seconds for a reply!',
+    sourceIds: ['S01', 'S14'],
+    caveat: 'At c ≈ 299,792 km/s over a mean Earth–Moon distance of ~384,400 km, one-way electromagnetic propagation takes ~1.28 s (~2.56 s round-trip), plus processing latency.',
+  },
+  {
+    id: 'F-COM-02',
+    topic: 'comms',
+    label: 'REAL_SCIENTIFIC_FACT',
+    kidText: 'Space weather forecasters watch solar flares and particle bursts on NASA DONKI so astronauts get early shelter warnings!',
+    sourceIds: ['S09', 'S13'],
+    caveat: 'X-rays from flares arrive at the speed of light (~8.3 minutes from Sun to Earth–Moon), while energetic protons and coronal mass ejections follow later depending on magnetic connectivity and speed.',
   },
 ];
 

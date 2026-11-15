@@ -13,6 +13,7 @@ const CRATERS = [
   { x: -12, z: 48, r: 10, depth: 1.9, rim: 0.65 },
   { x: 18, z: 22, r: 3.4, depth: 0.55, rim: 0.22 },
   { x: -19, z: -15, r: 3.0, depth: 0.5, rim: 0.2 },
+  { x: 4.9, z: 10.6, r: 1.8, depth: 0.42, rim: 0.16 },
 ];
 
 /** Evaluate terrain height at world (x, z) so buildings/rocks/rover sit on the surface. */
@@ -111,18 +112,30 @@ export function createLunarTerrain() {
   ground.name = 'groundMesh';
   group.add(ground);
 
-  // Subtle landing/outpost pad rings etched in regolith
-  const padRingGeo = new THREE.RingGeometry(18.2, 18.7, 64);
+  // Outpost perimeter safety ring etched in lunar regolith
+  const padRingGeo = new THREE.RingGeometry(10.8, 11.12, 72);
   padRingGeo.rotateX(-Math.PI / 2);
   const padRingMat = new THREE.MeshBasicMaterial({
-    color: 0x565b66,
+    color: 0xcbe4ff,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.52,
     depthWrite: false,
   });
   const padRing = new THREE.Mesh(padRingGeo, padRingMat);
-  padRing.position.y = 0.03;
+  padRing.position.y = 0.04;
   group.add(padRing);
+
+  const outerPadRingGeo = new THREE.RingGeometry(15.4, 15.65, 72);
+  outerPadRingGeo.rotateX(-Math.PI / 2);
+  const outerPadRingMat = new THREE.MeshBasicMaterial({
+    color: 0x64748b,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+  });
+  const outerPadRing = new THREE.Mesh(outerPadRingGeo, outerPadRingMat);
+  outerPadRing.position.y = 0.03;
+  group.add(outerPadRing);
 
   // Distant south-pole horizon mountain ring (Shackleton rim vibe)
   const ridgeGeo = new THREE.CylinderGeometry(118, 128, 22, 96, 6, true);
@@ -134,18 +147,18 @@ export function createLunarTerrain() {
     const angle = Math.atan2(vz, vx);
     const t = clamp((vy + 11) / 22, 0, 1); // 0 at bottom, 1 at crest
     const crest =
-      6 +
-      5.5 * Math.sin(angle * 5 + 0.7) * Math.cos(angle * 3 - 0.4) +
+      6.8 +
+      5.8 * Math.sin(angle * 5 + 0.7) * Math.cos(angle * 3 - 0.4) +
       4.5 * fbm(Math.cos(angle) * 3.5, Math.sin(angle) * 3.5, 4, 919);
-    const newY = -4 + t * Math.max(2.5, crest);
+    const newY = -4 + t * Math.max(2.8, crest);
     rPos.setY(i, newY);
   }
   ridgeGeo.computeVertexNormals();
 
   const ridgeMat = new THREE.MeshStandardMaterial({
-    color: 0x4c515c,
-    roughness: 0.96,
-    metalness: 0.02,
+    color: 0x636c7d,
+    roughness: 0.94,
+    metalness: 0.04,
     side: THREE.BackSide,
   });
   const ridges = new THREE.Mesh(ridgeGeo, ridgeMat);
@@ -300,20 +313,21 @@ export function createSkyAndCelestials() {
   });
 
   const earthGroup = new THREE.Group();
-  earthGroup.position.set(-88, 22, -112);
+  earthGroup.position.set(26, 15.5, -104);
   const earthMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(5.8, 32, 24),
+    new THREE.SphereGeometry(7.4, 36, 26),
     new THREE.MeshStandardMaterial({
       map: earthTex,
-      roughness: 0.55,
+      roughness: 0.48,
       metalness: 0.05,
-      emissive: new THREE.Color(0x1b4d89),
-      emissiveIntensity: 0.45,
+      emissive: new THREE.Color(0x2163b0),
+      emissiveIntensity: 0.72,
+      fog: false,
     })
   );
   earthGroup.add(earthMesh);
 
-  const earthAtmo = makeGlow(0x4da6ff, 18, 0.55);
+  const earthAtmo = makeGlow(0x5bb8ff, 22, 0.72);
   earthGroup.add(earthAtmo);
   skyGroup.add(earthGroup);
 

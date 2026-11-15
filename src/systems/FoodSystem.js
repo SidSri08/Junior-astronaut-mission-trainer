@@ -22,8 +22,12 @@ export function tickFood(state, dt, B) {
 export function tickLab(state, dt, B) {
   if (state.crew.sheltered || !isPowered(state, 'lab', B)) return;
   const eff = efficiency(state.modules.lab.health, B.wear.brokenBelow);
+  const commsBoost =
+    state.modules.comms && state.modules.comms.online && !state.power.brownout
+      ? 1 + (B.comms?.researchBonusMultiplier || 0.1)
+      : 1;
   const before = state.resources.research;
-  state.resources.research = clamp(before + B.lab.researchPerSecond * eff * dt);
+  state.resources.research = clamp(before + B.lab.researchPerSecond * eff * commsBoost * dt);
   if (before < 100 && state.resources.research >= 100) addLog(state, 'good', '🏆 Research goal reached! Great science, Commander!');
 }
 

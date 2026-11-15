@@ -1,6 +1,8 @@
 // C-S1 — Master simulation step and player actions (pure, deterministic).
 
 import { BALANCE } from '../data/gameBalance.js';
+import { taskById } from '../data/trainingTasks.js';
+import { applyTrainingOutcome } from './ProgressionSystem.js';
 import { OBJECTIVES } from '../data/objectives.js';
 import { clamp, addLog } from './util.js';
 import { tickPower, computePower } from './PowerSystem.js';
@@ -9,6 +11,13 @@ import { tickFood, tickLab } from './FoodSystem.js';
 import { tickRadiation } from './RadiationSystem.js';
 import { tickHabitat, MODULE_NAMES } from './HabitatSystem.js';
 import { tickMissionEvents, finishEventsByType, resolveEventDecision } from './MissionEventSystem.js';
+import {
+  startScenarioRun,
+  applyDecision as applyScenarioDecisionChoice,
+  resolveMiniGame as resolveScenarioMiniGame,
+  completeScenarioRun,
+  resetCampaign as resetCampaignState,
+} from './CampaignSystem.js';
 
 export function checkObjectives(state) {
   for (const obj of OBJECTIVES) {
@@ -39,7 +48,7 @@ export function tickCrewHealth(state, dt, B) {
 }
 
 export function advanceSimulationStep(state, dt, B = BALANCE) {
-  if (state.mission.status !== 'running' || state.mission.inMinigame || state.mission.speed === 0) {
+  if (state.mission.status !== 'running' || state.mission.inMinigame || state.mission.inDesk || state.mission.speed === 0 || state.campaign?.endingTriggered) {
     return;
   }
 
@@ -90,7 +99,7 @@ export function advanceSimulationStep(state, dt, B = BALANCE) {
   }
 
   // Check win condition (survived all 7 mission days)
-  if (state.mission.elapsed >= B.time.missionDays * dayLen) {
+  if (!state.campaign?.mode && state.mission.elapsed >= B.time.missionDays * dayLen) {
     state.mission.status = 'won';
     const objCount = Object.values(state.objectives).filter(Boolean).length;
     let stars = 1;
@@ -108,6 +117,17 @@ export function applyPlayerAction(state, action, B = BALANCE) {
   }
 
   switch (action.type) {
+    case 'setDeskOpen':
+      state.mission.inDesk = Boolean(action.open);
+      return { ok: true, code: 'DESK_UPDATED' };
+    case 'markStorySeen':
+      state.story ||= { seen: [] };
+      if (!state.story.seen.includes(action.chapter)) state.story.seen.push(action.chapter);
+      return { ok: true, code: 'STORY_UPDATED' };
+    case 'markEarthReturned':
+      if (!state.campaign?.endingTriggered) return { ok: false, code: 'CAMPAIGN_INCOMPLETE' };
+      state.campaign.returnedToEarth = true;
+      return { ok: true, code: 'EARTH_RETURNED' };
     case 'startMission': {
       state.mission.status = 'running';
       addLog(state, 'good', '🚀 Mission started! Keep your 4 astronauts healthy for 7 days.');
@@ -134,7 +154,7 @@ export function applyPlayerAction(state, action, B = BALANCE) {
 
     case 'toggleModule': {
       const id = action.moduleId;
-      if (!['lifeSupport', 'greenhouse', 'lab'].includes(id)) {
+      if (!['lifeSupport', 'greenhouse', 'lab', 'comms'].includes(id)) {
         return { ok: false, code: 'CANNOT_TOGGLE', message: 'That building cannot be switched off.' };
       }
       const mod = state.modules[id];
@@ -268,6 +288,8 @@ export function applyPlayerAction(state, action, B = BALANCE) {
     }
 
     case 'completeMinigame': {
+      if (action.cancelled || !taskById(action.gameId)) return { ok: false, code: 'INVALID_RESULT', message: 'No completed task to record.' };
+      if (action.attemptToken && state.progression?.rewardedAttempts.includes(action.attemptToken)) return { ok: false, code: 'DUPLICATE_RESULT', message: 'Reward already collected.' };
       state.mission.inMinigame = false;
       const gameId = action.gameId;
       const success = Boolean(action.success);
@@ -320,7 +342,102 @@ export function applyPlayerAction(state, action, B = BALANCE) {
         return { ok: true, code: 'SOLAR_ALIGNER_DONE', message: 'Solar panels updated!' };
       }
 
-      return { ok: false, code: 'UNKNOWN_MINIGAME', message: 'Unknown minigame.' };
+      applyTrainingOutcome(state, action);
+      addLog(state, success ? 'good' : 'warn', `${taskById(gameId).title}: ${success ? 'task complete; supplies updated.' : 'reserve used for recovery. Retry when ready.'}`);
+      checkObjectives(state);
+      return { ok: true, code: 'TRAINING_COMPLETE', message: 'Training result applied to the outpost.' };
+    }
+
+    case 'updateSetting': {
+      if (!state.settings) {
+        state.settings = { muted: false, volume: 0.75, reducedMotion: false, lowQuality: false, captionsEnabled: true };
+      }
+      const { key, value } = action;
+      if (!(key in state.settings)) {
+        return { ok: false, code: 'UNKNOWN_SETTING', message: `Unknown setting: ${key}` };
+      }
+      state.settings[key] = value;
+      return { ok: true, code: 'SETTING_UPDATED', message: `Updated ${key}.` };
+    }
+
+    case 'setCinematic': {
+      if (!state.cinematics) {
+        state.cinematics = {
+          active: 'none',
+          stage: 'idle',
+          label: '',
+          title: '',
+          subtitle: '',
+          progress: 0,
+          skipped: false,
+          replayRequested: false,
+          setupComplete: false,
+          caption: '',
+          landingSeen: false,
+        };
+      }
+      const allowed = ['active', 'stage', 'label', 'title', 'subtitle', 'progress', 'skipped', 'replayRequested', 'setupComplete', 'caption', 'landingSeen'];
+      for (const k of allowed) {
+        if (k in action && action[k] !== undefined) {
+          state.cinematics[k] = action[k];
+        }
+      }
+      return { ok: true, code: 'CINEMATIC_UPDATED', message: state.cinematics.caption || 'Cinematic updated.' };
+    }
+
+    case 'startScenario': {
+      const res = startScenarioRun(state, action.scenarioId);
+      if (res.ok) state.campaign.mode = true;
+      checkObjectives(state);
+      return res;
+    }
+
+    case 'applyScenarioDecision': {
+      const res = applyScenarioDecisionChoice(state, action.scenarioId, action.choiceId);
+      const p = computePower(state, B);
+      state.power.generation = Math.round(p.generation * 10) / 10;
+      state.power.consumption = p.consumption;
+      state.power.net = Math.round(p.net * 10) / 10;
+      checkObjectives(state);
+      return res;
+    }
+
+    case 'completeScenarioMiniGame': {
+      const res = resolveScenarioMiniGame(state, action);
+      if (!res.ok) return res;
+      if (action.gameId === 'leakHunter' && action.success) {
+        finishEventsByType(state, 'oxygenLeak', 'minigame-sealed');
+        state.resources.oxygen = clamp(state.resources.oxygen + B.minigames.leakHunter.oxygenRestore);
+        state.stats.minigameWins.leakHunter += 1;
+      } else if (action.gameId === 'solarAligner') {
+        const score = Number(action.qualityScore ?? action.score ?? 0.85);
+        state.modules.solar.alignment = Math.max(B.minigames.solarAligner.minAlignment, Math.round((0.55 + score * 0.45) * 100) / 100);
+        state.modules.solar.dust = clamp(state.modules.solar.dust * 0.25, 0, 0.9);
+        finishEventsByType(state, 'dustyPanels', 'minigame-cleaned');
+        if (action.success) state.stats.minigameWins.solarAligner += 1;
+      }
+      const p = computePower(state, B);
+      state.power.generation = Math.round(p.generation * 10) / 10;
+      state.power.consumption = p.consumption;
+      state.power.net = Math.round(p.net * 10) / 10;
+      checkObjectives(state);
+      return res;
+    }
+
+    case 'finishScenarioRun': {
+      const res = completeScenarioRun(state);
+      checkObjectives(state);
+      return res;
+    }
+
+    case 'resetCampaign': {
+      const res = resetCampaignState(state);
+      if (state.cinematics) {
+        state.cinematics.active = 'none';
+        state.cinematics.stage = 'idle';
+        state.cinematics.progress = 0;
+      }
+      return res;
     }
 
     default:

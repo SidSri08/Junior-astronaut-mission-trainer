@@ -2,6 +2,9 @@
 // Contract: createLeakHunter({ container, context, onComplete }) -> { start(), destroy() }
 
 import { SOUNDS } from '../ui/soundFx.js';
+import { computeTimingMetrics } from '../systems/TimerSystem.js';
+import { nextRandom } from '../systems/rng.js';
+import { factsFor } from '../data/scienceFacts.js';
 
 const LEAK_TYPES = [
   { label: 'Airlock Seam Crack', hitRadius: 0.105, points: 300 },
@@ -9,19 +12,16 @@ const LEAK_TYPES = [
   { label: 'Meteoroid Pinhole', hitRadius: 0.088, points: 450 },
 ];
 
-const NASA_LEAK_FACTS = [
-  'On the International Space Station, escaping air makes a high-pitched ultrasonic whistle too high for human ears—so astronauts use special ultrasonic microphones to hunt down tiny leaks!',
-  'Space is a vacuum with zero air pressure! Even a tiny 2-millimeter hole lets precious breathing oxygen rush out into space until astronauts seal it with a tough epoxy patch.',
-  'NASA’s Artemis lunar habitats use multi-layer "Whipple shields" on the outside to stop tiny fast micrometeoroids before they can poke holes in the inner air wall!',
-];
+const NASA_LEAK_FACTS = factsFor('oxygen').map((fact) => fact.kidText);
 
-export function createLeakHunter({ container, onComplete }) {
+export function createLeakHunter({ container, context = {}, onComplete }) {
   let timerId = null;
   const timeoutIds = new Set();
   let keyHandler = null;
   let destroyed = false;
+  let submitted = false;
 
-  const TOTAL_TIME = 30;
+  const TOTAL_TIME = Math.max(20, Math.round(Number(context?.timerLimitSec ?? 30)));
   let timeLeft = TOTAL_TIME;
   let paused = false;
   let phase = 'tutorial'; // 'tutorial' | 'playing' | 'results'
@@ -31,6 +31,7 @@ export function createLeakHunter({ container, onComplete }) {
   let bonusPoints = 0;
   let tutorialPracticeSealed = false;
   let lastScanSoundTime = 0;
+  const randomState = { rngState: context.seed || 2026 };
 
   function safeTimeout(fn, ms) {
     const id = setTimeout(() => {
@@ -72,8 +73,8 @@ export function createLeakHunter({ container, onComplete }) {
         label: spec.label,
         hitRadius: spec.hitRadius,
         points: spec.points,
-        x: z.minX + Math.random() * (z.maxX - z.minX),
-        y: z.minY + Math.random() * (z.maxY - z.minY),
+        x: z.minX + nextRandom(randomState) * (z.maxX - z.minX),
+        y: z.minY + nextRandom(randomState) * (z.maxY - z.minY),
         sealed: false,
       });
     }
@@ -109,15 +110,27 @@ export function createLeakHunter({ container, onComplete }) {
   }
 
   function exitToMission() {
-    if (destroyed) return;
+    if (destroyed || submitted) return;
+    submitted = true;
     SOUNDS.click();
     clearAllTimers();
     removeKeyHandler();
-    const { success, score } = computeResultMetrics();
+    const { sealedCount, success, score } = computeResultMetrics();
+    const timing = computeTimingMetrics({
+      elapsedSec: TOTAL_TIME - timeLeft,
+      limitSec: TOTAL_TIME,
+    });
+    const qualityScore = Math.max(0.35, Math.min(1, sealedCount / Math.max(1, leaks.length || 3)));
     onComplete({
       gameId: 'leakHunter',
+      cancelled: phase !== 'results',
+      scenarioId: context?.scenarioId || null,
       success,
       score,
+      qualityScore: Math.round(qualityScore * 100) / 100,
+      speedScore: timing.speedScore,
+      timeRemainingSec: Math.max(0, timeLeft),
+      timerLimitSec: TOTAL_TIME,
     });
   }
 
@@ -141,37 +154,37 @@ export function createLeakHunter({ container, onComplete }) {
           Use your ultrasonic directional microphone to find the hissing sounds and seal them tight.
         </p>
 
-        <div class="mg-tutorial-steps" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">📡</div>
-            <strong style="font-size:0.82rem;">1. Move Ultrasonic Scanner</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Slide your mouse, tap with touch, or use Arrow / WASD keys across the blue habitat wall grid.</p>
+        <div class="mg-tutorial-steps">
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">📡</div>
+            <strong>1. Move Ultrasonic Scanner</strong>
+            <p>Slide your mouse, tap with touch, or use Arrow / WASD keys across the blue habitat wall grid.</p>
           </div>
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">🎯</div>
-            <strong style="font-size:0.82rem;">2. Follow Signal Compass</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">🎯</div>
+            <strong>2. Follow Signal Compass</strong>
+            <p>
               <span class="sig-cold">🔵 Cold</span> = Far ·
               <span class="sig-mid">🟡 Warm</span> = Close ·
               <span class="sig-hot">🔴 PINPOINT!</span> = Right on top!
             </p>
           </div>
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">🩹</div>
-            <strong style="font-size:0.82rem;">3. Click or Space to Seal</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">When your sensor ring glows <strong class="sig-hot">PINPOINT</strong>, click or press Space to fire a permanent epoxy patch!</p>
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">🩹</div>
+            <strong>3. Click or Space to Seal</strong>
+            <p>When your sensor ring glows <strong class="sig-hot">PINPOINT</strong>, click or press Space to fire a permanent epoxy patch!</p>
           </div>
         </div>
 
-        <div class="mg-practice-box" style="background:rgba(16,27,43,0.9);border:1px dashed var(--accent-primary);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
-          <div style="font-size:0.8rem;margin-bottom:8px;">
+        <div class="mg-practice-box">
+          <div class="mg-practice-title">
             🎯 <strong>Interactive Practice:</strong> Click the hissing leak spot below to test your patch launcher!
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="mg-practice-row">
             <button type="button" class="btn ${tutorialPracticeSealed ? 'btn-secondary' : 'btn-primary btn-pulse'}" id="lh-practice-btn">
               ${tutorialPracticeSealed ? '✅ Test Leak Sealed!' : '💨 Hissing Test Leak — Click Me!'}
             </button>
-            <span id="lh-practice-status" class="mg-practice-feedback ${tutorialPracticeSealed ? 'sig-hot' : ''}" style="font-size:0.8rem;">
+            <span id="lh-practice-status" class="mg-practice-feedback ${tutorialPracticeSealed ? 'sig-hot' : ''}">
               ${tutorialPracticeSealed ? '🎉 Bullseye! You are ready to scan the actual Moon base hull!' : 'Waiting for your test patch…'}
             </span>
           </div>
@@ -180,7 +193,7 @@ export function createLeakHunter({ container, onComplete }) {
         <div class="mg-actions-row">
           <span class="mg-science-note">💡 <strong>NASA Tip:</strong> Watch the little arrow inside your scanner ring—it points straight to the leak!</span>
           <div class="mg-btn-group">
-            <button type="button" class="btn btn-primary btn-lg" id="lh-start-btn">🚀 Start Scanner (30s Timer)</button>
+            <button type="button" class="btn btn-primary btn-lg" id="lh-start-btn">🚀 Start Scanner (${TOTAL_TIME}s Timer)</button>
           </div>
         </div>
       </div>
@@ -227,7 +240,7 @@ export function createLeakHunter({ container, onComplete }) {
             <span class="mg-badge">MINIGAME 1 · OXYGEN & HULL PRESSURE</span>
             <h2>🔍 Leak Hunter: Ultrasonic Hull Scanner</h2>
           </div>
-          <div class="mg-header-btns" style="display:flex;gap:6px;">
+          <div class="mg-header-btns">
             <button class="btn btn-secondary btn-mini" type="button" id="lh-help-btn" title="How to Play">❓ Help</button>
             <button class="btn btn-secondary btn-mini" type="button" id="lh-pause-btn">⏸ Pause</button>
             <button class="btn btn-ghost btn-mini" type="button" data-action="exit">✕ Exit</button>
@@ -242,7 +255,7 @@ export function createLeakHunter({ container, onComplete }) {
         <div class="mg-stats">
           <div class="mg-stat">⏱️ Time Left: <strong id="lh-time">${timeLeft}s</strong></div>
           <div class="mg-stat">🩹 Leaks Sealed: <strong id="lh-count">0 / ${leaks.length}</strong></div>
-          <div class="mg-stat" style="display:inline-flex;align-items:center;gap:6px;">
+          <div class="mg-stat">
             📡 Ultrasonic Signal: <strong id="lh-signal" class="sig-cold">Move scanner…</strong>
             <svg class="rive-wave-gauge" id="lh-wave-svg" data-rive-state="cold" width="60" height="18" viewBox="0 0 64 20" aria-hidden="true">
               <path id="lh-wave-path" d="M 2 10 Q 10 8, 18 10 T 34 10 T 50 10 T 62 10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
@@ -263,11 +276,11 @@ export function createLeakHunter({ container, onComplete }) {
             <div class="lh-reticle-arrow" id="lh-arrow">➤</div>
           </div>
           <div class="lh-feedback-banner" id="lh-feedback">👩‍🚀 Move your scanner over the wall to detect the ultrasonic hiss!</div>
-          <div class="mg-pause-overlay" id="lh-pause-overlay" style="position:absolute;inset:0;background:rgba(7,13,24,0.92);display:flex;align-items:center;justify-content:center;z-index:20;" hidden>
-            <div class="mg-pause-box" style="text-align:center;padding:16px;">
+          <div class="mg-pause-overlay" id="lh-pause-overlay" hidden>
+            <div class="mg-pause-box">
               <h3>⏸ Game Paused</h3>
-              <p style="color:var(--text-muted);font-size:0.84rem;">Timer is paused. Take your time, Junior Commander!</p>
-              <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+              <p>Timer is paused. Take your time, Junior Commander!</p>
+              <div class="mg-pause-actions">
                 <button type="button" class="btn btn-primary" id="lh-resume-btn">▶ Resume Scanning</button>
                 <button type="button" class="btn btn-secondary" id="lh-restart-btn">🔄 Restart Game</button>
               </div>
@@ -275,9 +288,9 @@ export function createLeakHunter({ container, onComplete }) {
           </div>
         </div>
 
-        <div class="mg-footer" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-          <span class="mg-science-note">🔬 <strong>NASA Science:</strong> Escaping air in vacuum creates high-frequency ultrasonic waves!</span>
-          <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);" id="lh-coords">FREQ: 39.4 kHz</span>
+        <div class="mg-footer">
+          <span class="mg-science-note">🔬 A pressure difference pushes cabin air through a leak. Follow the training scanner signal to find it.</span>
+          <span class="mg-coords" id="lh-coords">FREQ: 39.4 kHz</span>
         </div>
       </div>
     `;

@@ -2,15 +2,15 @@
 // Contract: createSolarAligner({ container, context, onComplete }) -> { start(), destroy() }
 
 import { SOUNDS } from '../ui/soundFx.js';
+import { nextRandom } from '../systems/rng.js';
+import { computeTimingMetrics } from '../systems/TimerSystem.js';
+import { factsFor } from '../data/scienceFacts.js';
 
-const NASA_SOLAR_FACTS = [
-  'At the Moon’s South Pole, the Sun never rises high overhead—it skims sideways along the horizon at only ~1.5° to 7°! That is why NASA’s Artemis base uses tall vertical solar towers that rotate to follow the Sun.',
-  'Solar panels follow the Cosine Law: P = Pmax × cos(θ). When a panel faces the Sun straight on (0° error), it catches 100% of the sunlight. Tilting away makes the shadow narrower and drops electricity!',
-  'Moon dust (regolith) is jagged and statically charged by sunlight, so it clings to solar panels like static-cling laundry! Cleaning off dust can boost a lunar solar array’s power by up to 60%.',
-];
+const NASA_SOLAR_FACTS = factsFor('power').map((fact) => fact.kidText);
 
-export function createSolarAligner({ container, onComplete }) {
+export function createSolarAligner({ container, context = {}, onComplete }) {
   let destroyed = false;
+  let submitted = false;
   let phase = 'tutorial'; // 'tutorial' | 'playing' | 'results'
   let paused = false;
   let sunAngle = -35; // -70..+70 deg along south-pole horizon
@@ -21,8 +21,13 @@ export function createSolarAligner({ container, onComplete }) {
   let practiceCleaned = false;
   let pointerUpHandler = null;
   let keyHandler = null;
+  let timerId = null;
+  const totalTime = Math.max(20, Number(context.timerLimitSec ?? 35));
+  let timeLeft = totalTime;
+  const randomState = { rngState: context.seed || 2026 };
 
   function removeWindowListeners() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
     if (typeof window !== 'undefined') {
       if (pointerUpHandler) {
         window.removeEventListener('pointerup', pointerUpHandler);
@@ -42,8 +47,8 @@ export function createSolarAligner({ container, onComplete }) {
     for (let i = 0; i < TOTAL_DUST_SPOTS; i++) {
       spots.push({
         id: i,
-        x: 12 + (i % 3) * 31 + (Math.random() * 6 - 3),
-        y: 18 + Math.floor(i / 3) * 44 + (Math.random() * 6 - 3),
+        x: 12 + (i % 3) * 31 + (nextRandom(randomState) * 6 - 3),
+        y: 18 + Math.floor(i / 3) * 44 + (nextRandom(randomState) * 6 - 3),
         cleaned: false,
       });
     }
@@ -77,14 +82,21 @@ export function createSolarAligner({ container, onComplete }) {
   }
 
   function exitToMission() {
-    if (destroyed) return;
+    if (destroyed || submitted) return;
+    submitted = true;
     SOUNDS.click();
     removeWindowListeners();
     const { success, score } = computeResultMetrics();
     onComplete({
       gameId: 'solarAligner',
+      cancelled: phase !== 'results',
+      scenarioId: context?.scenarioId || null,
       success,
       score,
+      qualityScore: score,
+      speedScore: computeTimingMetrics({ elapsedSec: totalTime - timeLeft, limitSec: totalTime }).speedScore,
+      timeRemainingSec: timeLeft,
+      timerLimitSec: Math.round(Number(context?.timerLimitSec ?? 30)),
     });
   }
 
@@ -107,33 +119,33 @@ export function createSolarAligner({ container, onComplete }) {
           Follow <strong>2 simple steps</strong> to achieve 100% electricity output!
         </p>
 
-        <div class="mg-tutorial-steps" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">🧹</div>
-            <strong style="font-size:0.82rem;">Step 1: Brush Sticky Regolith</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Click, tap, or swipe across the 6 grey dust clouds on the solar panel until all cells sparkle!</p>
+        <div class="mg-tutorial-steps">
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">🧹</div>
+            <strong>Step 1: Brush Sticky Regolith</strong>
+            <p>Click, tap, or swipe across the 6 grey dust clouds on the solar panel until all cells sparkle!</p>
           </div>
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">📐</div>
-            <strong style="font-size:0.82rem;">Step 2: Aim Directly at the Sun</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Rotate the panel’s <span class="sig-hot">▲ Front Arrow</span> using slider, −/+ buttons, or Arrow keys to face the Sun!</p>
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">📐</div>
+            <strong>Step 2: Aim Directly at the Sun</strong>
+            <p>Rotate the panel’s <span class="sig-hot">▲ Front Arrow</span> using slider, −/+ buttons, or Arrow keys to face the Sun!</p>
           </div>
-          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
-            <div style="font-size:1.4rem;margin-bottom:4px;">⚡</div>
-            <strong style="font-size:0.82rem;">Step 3: Lock In 78%+ Output</strong>
-            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">When Total Power hits <strong class="sig-hot">78% or higher</strong> (92%+ for 3 Stars ⭐), click <strong>Lock Array</strong>!</p>
+          <div class="mg-tut-step">
+            <div class="mg-tut-icon">⚡</div>
+            <strong>Step 3: Lock In 78%+ Output</strong>
+            <p>When Total Power hits <strong class="sig-hot">78% or higher</strong> (92%+ for 3 Stars ⭐), click <strong>Lock Array</strong>!</p>
           </div>
         </div>
 
-        <div class="mg-practice-box" style="background:rgba(16,27,43,0.9);border:1px dashed var(--accent-primary);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
-          <div style="font-size:0.8rem;margin-bottom:8px;">
+        <div class="mg-practice-box">
+          <div class="mg-practice-title">
             🎯 <strong>Interactive Practice:</strong> Click the dusty solar cell below to test your electrostatic brush!
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="mg-practice-row">
             <button type="button" class="btn ${practiceCleaned ? 'btn-secondary' : 'btn-primary btn-pulse'}" id="sa-practice-btn">
               ${practiceCleaned ? '✨ Sparkling Clean (+50 Bonus Pts)!' : '🌫️ Dusty Solar Cell — Click to Brush!'}
             </button>
-            <span id="sa-practice-status" class="mg-practice-feedback ${practiceCleaned ? 'sig-hot' : ''}" style="font-size:0.8rem;">
+            <span id="sa-practice-status" class="mg-practice-feedback ${practiceCleaned ? 'sig-hot' : ''}">
               ${practiceCleaned ? '🌟 Fantastic brushing! Now let’s tune the full lunar solar array!' : 'Tap the dusty cell to test brushing…'}
             </span>
           </div>
@@ -172,10 +184,11 @@ export function createSolarAligner({ container, onComplete }) {
   }
 
   function startGameplay() {
+    timeLeft = totalTime;
     phase = 'playing';
     paused = false;
     removeWindowListeners();
-    sunAngle = Math.round(-55 + Math.random() * 110);
+    sunAngle = Math.round(-55 + nextRandom(randomState) * 110);
     panelAngle = sunAngle > 0 ? Math.max(-75, sunAngle - 50) : Math.min(75, sunAngle + 50);
     makeSpots();
 
@@ -186,7 +199,7 @@ export function createSolarAligner({ container, onComplete }) {
             <span class="mg-badge">MINIGAME 2 · SOLAR POWER & COSINE LAW</span>
             <h2>☀️ Solar Aligner: South Pole Array Tuner</h2>
           </div>
-          <div class="mg-header-btns" style="display:flex;gap:6px;">
+          <div class="mg-header-btns">
             <button class="btn btn-secondary btn-mini" type="button" id="sa-help-btn">❓ Help</button>
             <button class="btn btn-secondary btn-mini" type="button" id="sa-pause-btn">⏸ Pause</button>
             <button class="btn btn-ghost btn-mini" type="button" data-action="exit">✕ Close</button>
@@ -199,10 +212,11 @@ export function createSolarAligner({ container, onComplete }) {
         </p>
 
         <div class="mg-stats">
+          <div class="mg-stat">Time remaining: <strong id="sa-time">${totalTime}s</strong></div>
           <div class="mg-stat">🌞 Sun Azimuth: <strong id="sa-sun">${sunAngle}°</strong></div>
           <div class="mg-stat">📐 Aim Match: <strong id="sa-align">0%</strong></div>
           <div class="mg-stat">🧹 Dust Cleaned: <strong id="sa-dust">0 / ${TOTAL_DUST_SPOTS}</strong></div>
-          <div class="mg-stat" style="display:inline-flex;align-items:center;gap:6px;">
+          <div class="mg-stat">
             ⚡ Total Power: <strong id="sa-total">0%</strong>
             <svg class="rive-solar-dial" id="sa-dial-svg" data-rive-state="idle" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9" fill="none" stroke="rgba(148,163,184,0.28)" stroke-width="3"/>
@@ -225,9 +239,9 @@ export function createSolarAligner({ container, onComplete }) {
                 <div class="sa-panel-normal">▲ Panel Front</div>
               </div>
             </div>
-            <label style="display:block;font-size:0.8rem;text-align:center;margin-bottom:4px;" for="sa-slider">
+            <label class="sa-angle-label" for="sa-slider">
               Panel Angle: <strong id="sa-angle-val">${panelAngle}°</strong>
-              <span id="sa-angle-diff" style="font-size:0.74rem;margin-left:4px;"></span>
+              <span id="sa-angle-diff" class="sa-angle-diff"></span>
             </label>
             <input id="sa-slider" class="sa-slider" type="range" min="-80" max="80" step="1" value="${panelAngle}" />
             <div class="sa-nudge-row" role="group" aria-label="Fine angle controls">
@@ -244,17 +258,17 @@ export function createSolarAligner({ container, onComplete }) {
               <span id="sa-clean-badge" class="b-tag is-warn">6 Dusty</span>
             </div>
             <div class="sa-solar-grid" id="sa-spots"></div>
-            <div class="sa-feedback-banner" id="sa-feedback" style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-top:4px;">
+            <div class="sa-feedback-banner" id="sa-feedback">
               👩‍🚀 Tip: Brush off all 6 dust clouds and match the Sun angle (${sunAngle}°)!
             </div>
           </div>
         </div>
 
-        <div class="mg-pause-overlay" id="sa-pause-overlay" style="position:absolute;inset:0;background:rgba(7,13,24,0.92);display:flex;align-items:center;justify-content:center;z-index:20;" hidden>
-          <div class="mg-pause-box" style="text-align:center;padding:16px;">
+        <div class="mg-pause-overlay" id="sa-pause-overlay" hidden>
+          <div class="mg-pause-box">
             <h3>⏸ Solar Tuner Paused</h3>
-            <p style="color:var(--text-muted);font-size:0.84rem;">Ready to keep tuning your South Pole solar towers?</p>
-            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <p>Ready to keep tuning your South Pole solar towers?</p>
+            <div class="mg-pause-actions">
               <button type="button" class="btn btn-primary" id="sa-resume-btn">▶ Resume Tuning</button>
               <button type="button" class="btn btn-secondary" id="sa-reset-btn">🔄 Fresh Panel</button>
             </div>
@@ -269,6 +283,13 @@ export function createSolarAligner({ container, onComplete }) {
     `;
 
     const slider = container.querySelector('#sa-slider');
+    timerId = setInterval(() => {
+      if (paused || phase !== 'playing') return;
+      timeLeft = Math.max(0, timeLeft - 1);
+      const timer = container.querySelector('#sa-time');
+      if (timer) timer.textContent = `${timeLeft}s`;
+      if (timeLeft <= 0) renderResults();
+    }, 1000);
     const angleVal = container.querySelector('#sa-angle-val');
     const angleDiffEl = container.querySelector('#sa-angle-diff');
     const alignEl = container.querySelector('#sa-align');

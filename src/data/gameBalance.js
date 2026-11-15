@@ -34,7 +34,7 @@ export const BALANCE = {
   },
 
   power: {
-    solarPeak: 20,        // units at perfect alignment, no dust, full health, daylight
+    solarPeak: 21,        // units at perfect alignment, no dust, full health, daylight (training simulation scale)
     habitatBase: 2,       // lights, heating, computers (always on)
     shelterExtra: 1,
     batteryPerUnit: 0.15, // % battery per (unit · second)
@@ -52,6 +52,12 @@ export const BALANCE = {
   lab: {
     power: 4,
     researchPerSecond: 0.45,
+  },
+
+  comms: {
+    power: 1,
+    researchBonusMultiplier: 0.12,
+    defaultLatencySec: 2.56,
   },
 
   radiation: {
@@ -97,5 +103,13 @@ export const BALANCE = {
   win: {
     researchGoal: 100,
     objectivesForStar: 4,
+  },
+
+  campaign: {
+    label: 'SIMULATION_VALUE',
+    totalRunsRequired: 5,
+    warningThresholdSec: 8,
+    qualityWeight: 0.65,
+    speedWeight: 0.35,
   },
 };
