@@ -5,6 +5,15 @@ import assert from 'node:assert/strict';
 
 import { BALANCE } from '../src/data/gameBalance.js';
 import { FACTS, SOURCES, factsFor, factById } from '../src/data/scienceFacts.js';
+import {
+  TUTORIAL_STEPS,
+  BUILDING_INFO,
+  RESOURCE_HELP,
+  GLOSSARY,
+  getContextualHint,
+} from '../src/data/educationContent.js';
+import { createLeakHunter } from '../src/minigames/leakHunter.js';
+import { createSolarAligner } from '../src/minigames/solarAligner.js';
 import { createInitialState, createStore } from '../src/systems/GameState.js';
 import { startEvent, resolveEventDecision } from '../src/systems/MissionEventSystem.js';
 import { saveGame, loadGame, clearSave, validateSavedState } from '../src/systems/SaveSystem.js';
@@ -225,5 +234,121 @@ test('10. Full 7-day mission simulation is winnable with simple commander mainte
   assert.equal(finalState.mission.status, 'won', `Expected mission to be won, got ${finalState.mission.status} (${finalState.mission.outcomeReason})`);
   assert.ok(finalState.mission.stars >= 2, `Expected at least 2 stars, got ${finalState.mission.stars}`);
   assert.ok(finalState.crew.health > 50);
+});
+
+test('11. Education content covers all buildings, topbar resources, tutorial steps, glossary, and contextual hints', () => {
+  assert.ok(TUTORIAL_STEPS.length >= 4);
+  for (const step of TUTORIAL_STEPS) {
+    assert.ok(step.id && step.title && step.body && step.tip);
+  }
+
+  for (const modId of ['habitat', 'lifeSupport', 'solar', 'greenhouse', 'lab']) {
+    const info = BUILDING_INFO[modId];
+    assert.ok(info, `Missing BUILDING_INFO for ${modId}`);
+    assert.ok(info.name && info.role && info.howItWorks);
+  }
+
+  for (const resKey of ['oxygen', 'water', 'food', 'battery', 'radiation', 'crew', 'research']) {
+    const help = RESOURCE_HELP[resKey];
+    assert.ok(help, `Missing RESOURCE_HELP for ${resKey}`);
+    assert.ok(help.question && help.question.endsWith('?'), `Expected guiding question for ${resKey}`);
+    assert.ok(help.explain && help.label);
+  }
+
+  assert.ok(GLOSSARY.length >= 6);
+  for (const entry of GLOSSARY) {
+    assert.ok(entry.term && entry.meaning);
+  }
+
+  // Verify contextual hints respond to mission emergencies and normal operation
+  const normalState = createInitialState({ seed: 11 });
+  const normalHint = getContextualHint(normalState);
+  assert.ok(normalHint.text && normalHint.mood && normalHint.kind);
+
+  const stormState = createInitialState({ seed: 12 });
+  startEvent(stormState, 'solarStorm');
+  const stormHint = getContextualHint(stormState);
+  assert.equal(stormHint.kind, 'bad');
+  assert.ok(stormHint.text.includes('Storm Shelter'));
+
+  const damagedState = createInitialState({ seed: 13 });
+  damagedState.modules.lab.health = 40;
+  const damagedHint = getContextualHint(damagedState);
+  assert.equal(damagedHint.kind, 'warn');
+  assert.ok(damagedHint.text.includes('Repair Kit'));
+});
+
+test('12. Minigame contracts (createLeakHunter & createSolarAligner) mount tutorial, handle close callback, and clean up on destroy()', () => {
+  function makeMockContainer() {
+    const listeners = new Map();
+    return {
+      innerHTML: '',
+      querySelector(selector) {
+        if (!this.innerHTML) return null;
+        if (!listeners.has(selector)) {
+          listeners.set(selector, {
+            className: '',
+            textContent: '',
+            hidden: false,
+            style: {},
+            handlers: {},
+            addEventListener(evt, fn) {
+              this.handlers[evt] = fn;
+            },
+            setAttribute() {},
+            click() {
+              if (this.handlers.click) this.handlers.click();
+            },
+          });
+        }
+        return listeners.get(selector);
+      },
+      querySelectorAll() {
+        return [];
+      },
+    };
+  }
+
+  // Test Leak Hunter contract
+  const lhContainer = makeMockContainer();
+  let lhCompletion = null;
+  const lh = createLeakHunter({
+    container: lhContainer,
+    onComplete: (payload) => {
+      lhCompletion = payload;
+    },
+  });
+  assert.equal(typeof lh.start, 'function');
+  assert.equal(typeof lh.destroy, 'function');
+  lh.start();
+  assert.ok(lhContainer.innerHTML.includes('Leak Hunter'));
+  lhContainer.querySelector('[data-action="close"]').click();
+  assert.ok(lhCompletion);
+  assert.equal(lhCompletion.gameId, 'leakHunter');
+  assert.equal(typeof lhCompletion.success, 'boolean');
+  assert.equal(typeof lhCompletion.score, 'number');
+  lh.destroy();
+  assert.equal(lhContainer.innerHTML, '');
+
+  // Test Solar Aligner contract
+  const saContainer = makeMockContainer();
+  let saCompletion = null;
+  const sa = createSolarAligner({
+    container: saContainer,
+    onComplete: (payload) => {
+      saCompletion = payload;
+    },
+  });
+  assert.equal(typeof sa.start, 'function');
+  assert.equal(typeof sa.destroy, 'function');
+  sa.start();
+  assert.ok(saContainer.innerHTML.includes('Solar Aligner'));
+  saContainer.querySelector('[data-action="close"]').click();
+  assert.ok(saCompletion);
+  assert.equal(saCompletion.gameId, 'solarAligner');
+  assert.equal(typeof saCompletion.success, 'boolean');
+  assert.equal(typeof saCompletion.score, 'number');
+  sa.destroy();
+  assert.equal(saContainer.innerHTML, '');
 });
 

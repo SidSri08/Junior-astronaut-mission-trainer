@@ -148,6 +148,54 @@ function createOxygenLeakParticles() {
   return { points, update };
 }
 
+function createAmbientLunarDust() {
+  const count = 85;
+  const positions = new Float32Array(count * 3);
+  const phases = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 42;
+    positions[i * 3 + 1] = 0.35 + Math.random() * 5.5;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 42;
+    phases[i] = Math.random() * Math.PI * 2;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    map: getGlowTexture(),
+    color: 0xcbd5e1,
+    size: 0.42,
+    transparent: true,
+    opacity: 0.32,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+
+  const points = new THREE.Points(geo, mat);
+
+  function update(dt, elapsed) {
+    const posAttr = geo.attributes.position;
+    for (let i = 0; i < count; i++) {
+      const p = phases[i];
+      let x = posAttr.getX(i) + Math.sin(elapsed * 0.4 + p) * 0.22 * dt;
+      let y = posAttr.getY(i) + (0.04 + Math.cos(elapsed * 0.55 + p) * 0.14) * dt;
+      let z = posAttr.getZ(i) + Math.cos(elapsed * 0.35 + p) * 0.22 * dt;
+      if (x < -21) x = 21;
+      if (x > 21) x = -21;
+      if (y < 0.25) y = 5.6;
+      if (y > 5.8) y = 0.35;
+      if (z < -21) z = 21;
+      if (z > 21) z = -21;
+      posAttr.setXYZ(i, x, y, z);
+    }
+    posAttr.needsUpdate = true;
+  }
+
+  return { points, update };
+}
+
 export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   if (!canvas) {
     throw new Error('createOutpostScene requires a canvas element');
@@ -169,6 +217,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   const warningSkyColor = new THREE.Color(0x281706);
   const stormSkyColor = new THREE.Color(0x361108);
   const currentSkyColor = baseSkyColor.clone();
+  const scratchSkyColor = baseSkyColor.clone();
   scene.background = currentSkyColor;
   scene.fog = new THREE.FogExp2(0x070a12, 0.0045);
 
@@ -239,12 +288,15 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   const buildings = createOutpostBuildings();
   scene.add(buildings.group);
 
-  // Event particle & flash effects
+  // Event particle & flash effects + ambient floating lunar dust motes
   const stormParticles = createSolarStormParticles();
   scene.add(stormParticles.points);
 
   const leakParticles = createOxygenLeakParticles();
   scene.add(leakParticles.points);
+
+  const ambientDust = createAmbientLunarDust();
+  scene.add(ambientDust.points);
 
   const meteorFlashSprite = makeGlow(0xfff2cc, 16, 0);
   meteorFlashSprite.position.set(1.5, 4.5, -1.5);
@@ -366,6 +418,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
   function focusBuilding(buildingId = null) {
     const validId = buildingId && BUILDING_LAYOUT[buildingId] ? buildingId : null;
     focusedBuildingId = validId;
+    userControllingCamera = false;
 
     if (validId) {
       const spec = BUILDING_LAYOUT[validId];
@@ -385,7 +438,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     } else {
       desiredTarget.copy(OVERVIEW_TARGET);
       desiredCameraPos.copy(OVERVIEW_CAMERA);
-      controls.autoRotate = !userControllingCamera;
+      controls.autoRotate = true;
       selectRing.mesh.visible = false;
     }
 
@@ -438,9 +491,9 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     const stormPulse = 0.5 + 0.5 * Math.sin(elapsedClock * 4.5);
     let targetSky = baseSkyColor;
     if (stormEvent?.phase === 'warning') {
-      targetSky = baseSkyColor.clone().lerp(warningSkyColor, 0.45 + 0.35 * stormPulse);
+      targetSky = scratchSkyColor.copy(baseSkyColor).lerp(warningSkyColor, 0.45 + 0.35 * stormPulse);
     } else if (stormEvent?.phase === 'active') {
-      targetSky = baseSkyColor.clone().lerp(stormSkyColor, 0.72 + 0.25 * stormPulse);
+      targetSky = scratchSkyColor.copy(baseSkyColor).lerp(stormSkyColor, 0.72 + 0.25 * stormPulse);
     }
     currentSkyColor.lerp(targetSky, 1 - Math.exp(-4 * dt));
     scene.fog.color.copy(currentSkyColor);
@@ -468,8 +521,14 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
       meteorPointLight.intensity = 0;
     }
 
-    // 5. Rotate Earth slowly & animate rings
+    // 5. Rotate Earth slowly, twinkle stars, drift lunar dust & animate rings
     sky.earthMesh.rotation.y += dt * 0.06;
+    if (Array.isArray(sky.twinkleLayers)) {
+      sky.twinkleLayers.forEach((tMat, idx) => {
+        tMat.opacity = 0.42 + 0.48 * Math.sin(elapsedClock * (2.2 + idx * 1.1) + idx * 2.1);
+      });
+    }
+    ambientDust.update(dt, elapsedClock);
     if (hoverRing.mesh.visible) {
       hoverRing.mat.opacity = 0.55 + 0.25 * Math.sin(elapsedClock * 5.0);
     }
@@ -483,7 +542,9 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     buildings.updateBuildings(latestSnapshot, dt, elapsedClock, sunAzimuth);
 
     // 7. Smooth camera focus lerp & OrbitControls update
-    controls.target.lerp(desiredTarget, 1 - Math.exp(-6 * dt));
+    if (!userControllingCamera) {
+      controls.target.lerp(desiredTarget, 1 - Math.exp(-6 * dt));
+    }
     if (cameraTransitioning && !userControllingCamera) {
       camera.position.lerp(desiredCameraPos, 1 - Math.exp(-5 * dt));
       if (
@@ -515,6 +576,7 @@ export function createOutpostScene({ canvas, onSelectBuilding } = {}) {
     controls.removeEventListener('end', onControlsEnd);
     controls.dispose();
     disposeObject(scene);
+    renderer.renderLists?.dispose?.();
     renderer.dispose();
   }
 

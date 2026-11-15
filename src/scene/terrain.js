@@ -191,7 +191,7 @@ export function createSkyAndCelestials() {
   const skyGroup = new THREE.Group();
   skyGroup.name = 'skyGroup';
 
-  // Starfield points
+  // Starfield points (base + twinkling accent stars)
   const starCount = 1400;
   const starPositions = new Float32Array(starCount * 3);
   const starColors = new Float32Array(starCount * 3);
@@ -216,7 +216,7 @@ export function createSkyAndCelestials() {
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
   starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
   const starMat = new THREE.PointsMaterial({
-    size: 1.15,
+    size: 1.25,
     vertexColors: true,
     transparent: true,
     opacity: 0.95,
@@ -226,6 +226,40 @@ export function createSkyAndCelestials() {
   const stars = new THREE.Points(starGeo, starMat);
   stars.name = 'starfield';
   skyGroup.add(stars);
+
+  // Twinkling bright stars layer (three counter-phased layers for gentle celestial shimmer)
+  const twinkleLayers = [];
+  for (let layer = 0; layer < 3; layer++) {
+    const tCount = 70;
+    const tPos = new Float32Array(tCount * 3);
+    const tCol = new Float32Array(tCount * 3);
+    for (let i = 0; i < tCount; i++) {
+      const theta = rand() * Math.PI * 2;
+      const phi = Math.acos(0.08 + rand() * 0.88);
+      const r = 162 + rand() * 12;
+      tPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      tPos[i * 3 + 1] = r * Math.cos(phi);
+      tPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      tCol[i * 3] = 0.88 + rand() * 0.12;
+      tCol[i * 3 + 1] = 0.92 + rand() * 0.08;
+      tCol[i * 3 + 2] = 1.0;
+    }
+    const tGeo = new THREE.BufferGeometry();
+    tGeo.setAttribute('position', new THREE.BufferAttribute(tPos, 3));
+    tGeo.setAttribute('color', new THREE.BufferAttribute(tCol, 3));
+    const tMat = new THREE.PointsMaterial({
+      size: 2.2 + layer * 0.35,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+      sizeAttenuation: false,
+      depthWrite: false,
+    });
+    const tPoints = new THREE.Points(tGeo, tMat);
+    tPoints.name = `twinkleStars_${layer}`;
+    skyGroup.add(tPoints);
+    twinkleLayers.push(tMat);
+  }
 
   // Small Earth sphere low on the horizon
   const earthTex = canvasTexture(256, 128, (ctx, w, h) => {
@@ -298,6 +332,7 @@ export function createSkyAndCelestials() {
   return {
     skyGroup,
     stars,
+    twinkleLayers,
     earthMesh,
     sunVisual,
     sunHaloInner,

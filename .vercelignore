@@ -1,0 +1,12 @@
+node_modules
+dist
+.env.local
+.DS_Store
+*.log
+vendor_skills
+.claude
+antigravity-game-studios-main
+docs
+templates
+tools
+

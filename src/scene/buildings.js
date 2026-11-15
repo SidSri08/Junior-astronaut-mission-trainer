@@ -740,8 +740,95 @@ function buildCargoLander() {
     root.add(legGroup);
   }
 
+  // Blinking navigation strobe on top of Cargo Lander
+  const strobeMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: new THREE.Color(0x38bdf8),
+    emissiveIntensity: 1.5,
+  });
+  const strobeBulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), strobeMat);
+  strobeBulb.position.set(0, 4.05, 0);
+  root.add(strobeBulb);
+  const strobeGlow = makeGlow(0x38bdf8, 2.2, 0.7);
+  strobeGlow.position.set(0, 4.05, 0);
+  root.add(strobeGlow);
+
   tagBuildingRecursive(root, 'lander');
-  return { root };
+  return { root, strobeMat, strobeGlow };
+}
+
+function buildAstronautFigure(accentHex = 0x38bdf8) {
+  const fig = new THREE.Group();
+  const suitMat = new THREE.MeshStandardMaterial({
+    color: 0xf5f8fc,
+    roughness: 0.45,
+    metalness: 0.15,
+  });
+  const visorMat = new THREE.MeshStandardMaterial({
+    color: 0xfbbf24,
+    emissive: new THREE.Color(0xd97706),
+    emissiveIntensity: 0.35,
+    roughness: 0.15,
+    metalness: 0.85,
+  });
+  const stripeMat = new THREE.MeshStandardMaterial({
+    color: accentHex,
+    emissive: new THREE.Color(accentHex),
+    emissiveIntensity: 0.4,
+    roughness: 0.35,
+  });
+
+  // Torso + PLSS life-support backpack
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.52, 12), suitMat);
+  torso.position.y = 0.62;
+  fig.add(torso);
+
+  const chestBadge = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.08), stripeMat);
+  chestBadge.position.set(0, 0.66, 0.22);
+  fig.add(chestBadge);
+
+  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.46, 0.22), suitMat);
+  backpack.position.set(0, 0.66, -0.22);
+  fig.add(backpack);
+
+  // Helmet + gold visor + helmet beacon
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 12), suitMat);
+  helmet.position.y = 1.05;
+  fig.add(helmet);
+
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), visorMat);
+  visor.position.set(0, 1.05, 0.08);
+  fig.add(visor);
+
+  const helmetBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), stripeMat);
+  helmetBeacon.position.set(0, 1.31, 0);
+  fig.add(helmetBeacon);
+
+  // Left & Right Arms and Legs for walking/waving animation
+  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.38, 8), suitMat);
+  leftArm.position.set(-0.29, 0.64, 0);
+  fig.add(leftArm);
+
+  const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.38, 8), suitMat);
+  rightArm.position.set(0.29, 0.64, 0);
+  fig.add(rightArm);
+
+  const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.38, 8), suitMat);
+  leftLeg.position.set(-0.11, 0.22, 0);
+  fig.add(leftLeg);
+
+  const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.38, 8), suitMat);
+  rightLeg.position.set(0.11, 0.22, 0);
+  fig.add(rightLeg);
+
+  fig.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+
+  return { fig, leftArm, rightArm, leftLeg, rightLeg };
 }
 
 function buildLunarRover() {
@@ -810,6 +897,9 @@ function buildLunarRover() {
   return { root, wheels, pathAngle: 0 };
 }
 
+const CLEAN_SOLAR_COLOR = new THREE.Color(0xffffff);
+const DUSTY_SOLAR_COLOR = new THREE.Color(0x8c7b65);
+
 export function createOutpostBuildings() {
   const group = new THREE.Group();
   group.name = 'outpostBuildings';
@@ -821,6 +911,8 @@ export function createOutpostBuildings() {
   const lab = buildLabModule();
   const lander = buildCargoLander();
   const rover = buildLunarRover();
+  const astro1 = buildAstronautFigure(0x38bdf8);
+  const astro2 = buildAstronautFigure(0xfbbf24);
 
   group.add(
     habitat.root,
@@ -829,7 +921,9 @@ export function createOutpostBuildings() {
     greenhouse.root,
     lab.root,
     lander.root,
-    rover.root
+    rover.root,
+    astro1.fig,
+    astro2.fig
   );
 
   const interactiveRoots = [
@@ -916,9 +1010,7 @@ export function createOutpostBuildings() {
     }
 
     // Tint solar panels toward dusty brown-grey proportional to dust (0..1)
-    const cleanColor = new THREE.Color(0xffffff);
-    const dustyColor = new THREE.Color(0x8c7b65);
-    solar.panelMat.color.lerpColors(cleanColor, dustyColor, dust * 0.85);
+    solar.panelMat.color.lerpColors(CLEAN_SOLAR_COLOR, DUSTY_SOLAR_COLOR, dust * 0.85);
     solar.panelMat.roughness = 0.25 + dust * 0.6;
     solar.panelMat.emissiveIntensity = solarOnline && !brownout ? 0.45 * (1 - dust * 0.65) : 0.08;
     solar.ledMat.emissiveIntensity = solarOnline ? 1.2 : 0.1;
@@ -932,10 +1024,11 @@ export function createOutpostBuildings() {
     greenhouse.cropsGroup.visible = planted;
     const targetCropScale = planted ? 0.22 + (growth / 100) * 0.95 : 0.01;
     greenhouse.currentCropScale = damp(greenhouse.currentCropScale, targetCropScale, 5, dt);
+    const cropBreath = ghOnline ? 1 + 0.03 * Math.sin(elapsedClock * 2.4) : 1;
     greenhouse.cropsGroup.scale.set(
-      1,
-      Math.max(0.05, greenhouse.currentCropScale),
-      1
+      cropBreath,
+      Math.max(0.05, greenhouse.currentCropScale * cropBreath),
+      cropBreath
     );
 
     greenhouse.growBarMat.emissiveIntensity = damp(
@@ -976,17 +1069,17 @@ export function createOutpostBuildings() {
       dt
     );
 
-    // 6. Warning beacons flash red on any module with health < 40
+    // 6. Warning beacons flash red on any module with health < 40 or offline
     const pulse = 0.5 + 0.5 * Math.sin(elapsedClock * 9.5);
     const checks = [
-      [habitat.beacon, habHealth],
-      [lifeSupport.beacon, lsHealth],
-      [solar.beacon, solarHealth],
-      [greenhouse.beacon, ghHealth],
-      [lab.beacon, labHealth],
+      [habitat.beacon, habHealth, mods.habitat?.online !== false],
+      [lifeSupport.beacon, lsHealth, mods.lifeSupport?.online !== false],
+      [solar.beacon, solarHealth, mods.solar?.online !== false],
+      [greenhouse.beacon, ghHealth, mods.greenhouse?.online !== false],
+      [lab.beacon, labHealth, mods.lab?.online !== false],
     ];
-    for (const [beacon, hp] of checks) {
-      const warn = hp < 40;
+    for (const [beacon, hp, online] of checks) {
+      const warn = hp < 40 || !online;
       beacon.bulbMat.emissiveIntensity = warn ? 0.4 + pulse * 2.4 : 0;
       beacon.glow.material.opacity = warn ? 0.25 + pulse * 0.7 : 0;
     }
@@ -1006,6 +1099,43 @@ export function createOutpostBuildings() {
     rover.root.rotation.y = Math.atan2(nrx - rx, nrz - rz);
     for (const w of rover.wheels) {
       w.rotation.x += dt * roverSpeed * 5.0;
+    }
+
+    // 8. Cargo Lander blinking navigation strobe
+    const landerBlink = Math.pow(0.5 + 0.5 * Math.sin(elapsedClock * 3.8), 6);
+    lander.strobeMat.emissiveIntensity = 0.25 + landerBlink * 2.2;
+    lander.strobeGlow.material.opacity = 0.12 + landerBlink * 0.65;
+
+    // 9. Animated Lunar Astronauts (visible outside when not sheltered)
+    astro1.fig.visible = !sheltered;
+    astro2.fig.visible = !sheltered;
+    if (!sheltered) {
+      // Astronaut 1 walks in open plaza between Habitat airlock steps and Greenhouse
+      const t1 = elapsedClock * 0.45;
+      const ax1 = 4.8 + Math.sin(t1) * 1.1;
+      const az1 = 2.8 + Math.cos(t1 * 0.8) * 0.9;
+      const hop1 = Math.abs(Math.sin(elapsedClock * 3.4)) * 0.18;
+      astro1.fig.position.set(ax1, sampleTerrainHeight(ax1, az1) + hop1, az1);
+      astro1.fig.rotation.y = Math.atan2(Math.cos(t1) * 1.1, -Math.sin(t1 * 0.8) * 0.72);
+      const swing1 = Math.sin(elapsedClock * 3.4) * 0.45;
+      astro1.leftArm.rotation.x = swing1;
+      astro1.rightArm.rotation.x = -swing1;
+      astro1.leftLeg.rotation.x = -swing1 * 0.8;
+      astro1.rightLeg.rotation.x = swing1 * 0.8;
+
+      // Astronaut 2 patrols open plaza between Habitat and Lander/Lab & waves cheerfully
+      const t2 = elapsedClock * 0.35 + 1.7;
+      const ax2 = -4.2 + Math.cos(t2) * 1.4;
+      const az2 = 5.6 + Math.sin(t2) * 1.1;
+      const hop2 = Math.abs(Math.sin(elapsedClock * 2.9 + 1.1)) * 0.14;
+      astro2.fig.position.set(ax2, sampleTerrainHeight(ax2, az2) + hop2, az2);
+      astro2.fig.rotation.y = Math.atan2(-Math.sin(t2) * 1.4, Math.cos(t2) * 1.1);
+      const swing2 = Math.sin(elapsedClock * 2.9) * 0.35;
+      astro2.leftArm.rotation.x = swing2;
+      astro2.rightArm.position.y = 0.78;
+      astro2.rightArm.rotation.z = -2.35 + Math.sin(elapsedClock * 5.2) * 0.32; // friendly raised wave
+      astro2.leftLeg.rotation.x = -swing2 * 0.7;
+      astro2.rightLeg.rotation.x = swing2 * 0.7;
     }
   }
 
