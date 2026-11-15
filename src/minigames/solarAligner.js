@@ -1,6 +1,8 @@
 // C-S3 — Minigame 2: Solar Aligner (Cosine Law & Lunar Dust Cleaning Educational Minigame).
 // Contract: createSolarAligner({ container, context, onComplete }) -> { start(), destroy() }
 
+import { SOUNDS } from '../ui/soundFx.js';
+
 const NASA_SOLAR_FACTS = [
   'At the Moon’s South Pole, the Sun never rises high overhead—it skims sideways along the horizon at only ~1.5° to 7°! That is why NASA’s Artemis base uses tall vertical solar towers that rotate to follow the Sun.',
   'Solar panels follow the Cosine Law: P = Pmax × cos(θ). When a panel faces the Sun straight on (0° error), it catches 100% of the sunlight. Tilting away makes the shadow narrower and drops electricity!',
@@ -76,6 +78,7 @@ export function createSolarAligner({ container, onComplete }) {
 
   function exitToMission() {
     if (destroyed) return;
+    SOUNDS.click();
     removeWindowListeners();
     const { success, score } = computeResultMetrics();
     onComplete({
@@ -94,56 +97,50 @@ export function createSolarAligner({ container, onComplete }) {
         <div class="mg-header">
           <div>
             <span class="mg-badge">MINIGAME 2 · INTERACTIVE TUTORIAL</span>
-            <h2>☀️ Solar Aligner: How to Boost Moon Electricity!</h2>
+            <h2>☀️ Solar Aligner: South Pole Solar Power</h2>
           </div>
           <button class="btn btn-ghost mg-close" type="button" data-action="close">✕ Back to Base</button>
         </div>
 
         <p class="mg-intro">
-          Our Moon base runs on sunlight! At the Lunar South Pole, the Sun stays low on the horizon and sticky Moon dust blocks our solar cells.
-          Complete <strong>2 easy steps</strong> to get 100% power!
+          Our Moon base runs on solar power! At the Lunar South Pole, the Sun stays low on the horizon and jagged Moon dust clings to our solar cells.
+          Follow <strong>2 simple steps</strong> to achieve 100% electricity output!
         </p>
 
-        <div class="mg-tutorial-steps">
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">🧹</div>
-            <div>
-              <strong>Step 1: Brush Off Sticky Moon Dust</strong>
-              <p>Click, tap, or swipe across the 6 grey dust clouds on the blue solar panel (or press <strong>C</strong>) until every cell sparkles!</p>
-            </div>
+        <div class="mg-tutorial-steps" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">🧹</div>
+            <strong style="font-size:0.82rem;">Step 1: Brush Sticky Regolith</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Click, tap, or swipe across the 6 grey dust clouds on the solar panel until all cells sparkle!</p>
           </div>
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">📐</div>
-            <div>
-              <strong>Step 2: Aim Straight at the Sun</strong>
-              <p>Use the slider, <strong>− / + buttons</strong>, or <strong>Arrow keys</strong> to point the panel’s <span class="sig-hot">▲ Front Arrow</span> directly at the golden <strong>☀️ SUN</strong>!</p>
-            </div>
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">📐</div>
+            <strong style="font-size:0.82rem;">Step 2: Aim Directly at the Sun</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Rotate the panel’s <span class="sig-hot">▲ Front Arrow</span> using slider, −/+ buttons, or Arrow keys to face the Sun!</p>
           </div>
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">⚡</div>
-            <div>
-              <strong>Step 3: Lock In 78%+ Power!</strong>
-              <p>When Total Output hits <strong class="sig-hot">78% or higher</strong> (92%+ for 3 Stars ⭐), click <strong>Lock Array & Finish</strong>!</p>
-            </div>
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">⚡</div>
+            <strong style="font-size:0.82rem;">Step 3: Lock In 78%+ Output</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">When Total Power hits <strong class="sig-hot">78% or higher</strong> (92%+ for 3 Stars ⭐), click <strong>Lock Array</strong>!</p>
           </div>
         </div>
 
-        <div class="mg-practice-box">
-          <div class="mg-practice-label">
-            🎯 <strong>Try It Now (Practice Cell):</strong> Click the dusty solar cell below to test your electrostatic brush!
+        <div class="mg-practice-box" style="background:rgba(16,27,43,0.9);border:1px dashed var(--accent-primary);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+          <div style="font-size:0.8rem;margin-bottom:8px;">
+            🎯 <strong>Interactive Practice:</strong> Click the dusty solar cell below to test your electrostatic brush!
           </div>
-          <div class="mg-practice-target-row">
-            <button type="button" class="sa-practice-dust ${practiceCleaned ? 'is-clean' : ''}" id="sa-practice-btn">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn ${practiceCleaned ? 'btn-secondary' : 'btn-primary btn-pulse'}" id="sa-practice-btn">
               ${practiceCleaned ? '✨ Sparkling Clean (+50 Bonus Pts)!' : '🌫️ Dusty Solar Cell — Click to Brush!'}
             </button>
-            <span id="sa-practice-status" class="mg-practice-feedback ${practiceCleaned ? 'sig-hot' : ''}" role="status" aria-live="polite">
-              ${practiceCleaned ? '🌟 Nice brushing! Now let’s tune the real solar array!' : 'Tap the dusty cell to clean it…'}
+            <span id="sa-practice-status" class="mg-practice-feedback ${practiceCleaned ? 'sig-hot' : ''}" style="font-size:0.8rem;">
+              ${practiceCleaned ? '🌟 Fantastic brushing! Now let’s tune the full lunar solar array!' : 'Tap the dusty cell to test brushing…'}
             </span>
           </div>
         </div>
 
         <div class="mg-actions-row">
-          <span class="mg-science-note">🔬 <strong>NASA Tip:</strong> Facing the Sun directly (0° difference) gives 100% Cosine Power!</span>
+          <span class="mg-science-note">🔬 <strong>NASA Tip:</strong> Facing the Sun directly (0° difference) gives 100% Cosine Law Power!</span>
           <div class="mg-btn-group">
             <button type="button" class="btn btn-primary btn-lg" id="sa-start-btn">☀️ Start Tuning Solar Panels!</button>
           </div>
@@ -154,21 +151,22 @@ export function createSolarAligner({ container, onComplete }) {
     const practiceBtn = container.querySelector('#sa-practice-btn');
     const practiceStatus = container.querySelector('#sa-practice-status');
     practiceBtn?.addEventListener('click', () => {
+      SOUNDS.action();
       practiceCleaned = true;
-      practiceBtn.className = 'sa-practice-dust is-clean';
+      practiceBtn.className = 'btn btn-secondary';
       practiceBtn.textContent = '✨ Sparkling Clean (+50 Bonus Pts)!';
       if (practiceStatus) {
-        practiceStatus.textContent = '🌟 Nice brushing! Now let’s tune the real solar array!';
+        practiceStatus.textContent = '🌟 Fantastic brushing! Now let’s tune the full lunar solar array!';
         practiceStatus.className = 'mg-practice-feedback sig-hot';
       }
     });
 
     container.querySelector('#sa-start-btn')?.addEventListener('click', () => {
+      SOUNDS.click();
       startGameplay();
     });
 
     container.querySelector('[data-action="close"]')?.addEventListener('click', () => {
-      // If closed from tutorial before playing, compute baseline score safely
       exitToMission();
     });
   }
@@ -177,7 +175,6 @@ export function createSolarAligner({ container, onComplete }) {
     phase = 'playing';
     paused = false;
     removeWindowListeners();
-    // Pick a fresh target sun azimuth at the lunar south pole horizon
     sunAngle = Math.round(-55 + Math.random() * 110);
     panelAngle = sunAngle > 0 ? Math.max(-75, sunAngle - 50) : Math.min(75, sunAngle + 50);
     makeSpots();
@@ -189,8 +186,8 @@ export function createSolarAligner({ container, onComplete }) {
             <span class="mg-badge">MINIGAME 2 · SOLAR POWER & COSINE LAW</span>
             <h2>☀️ Solar Aligner: South Pole Array Tuner</h2>
           </div>
-          <div class="mg-header-btns">
-            <button class="btn btn-secondary btn-mini" type="button" id="sa-help-btn">❓ How to Play</button>
+          <div class="mg-header-btns" style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-mini" type="button" id="sa-help-btn">❓ Help</button>
             <button class="btn btn-secondary btn-mini" type="button" id="sa-pause-btn">⏸ Pause</button>
             <button class="btn btn-ghost btn-mini" type="button" data-action="exit">✕ Close</button>
           </div>
@@ -202,10 +199,10 @@ export function createSolarAligner({ container, onComplete }) {
         </p>
 
         <div class="mg-stats">
-          <div class="mg-stat">🌞 Sun Angle: <strong id="sa-sun">${sunAngle}°</strong></div>
+          <div class="mg-stat">🌞 Sun Azimuth: <strong id="sa-sun">${sunAngle}°</strong></div>
           <div class="mg-stat">📐 Aim Match: <strong id="sa-align">0%</strong></div>
           <div class="mg-stat">🧹 Dust Cleaned: <strong id="sa-dust">0 / ${TOTAL_DUST_SPOTS}</strong></div>
-          <div class="mg-stat sa-total-stat">
+          <div class="mg-stat" style="display:inline-flex;align-items:center;gap:6px;">
             ⚡ Total Power: <strong id="sa-total">0%</strong>
             <svg class="rive-solar-dial" id="sa-dial-svg" data-rive-state="idle" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9" fill="none" stroke="rgba(148,163,184,0.28)" stroke-width="3"/>
@@ -228,9 +225,9 @@ export function createSolarAligner({ container, onComplete }) {
                 <div class="sa-panel-normal">▲ Panel Front</div>
               </div>
             </div>
-            <label class="sa-slider-label" for="sa-slider">
+            <label style="display:block;font-size:0.8rem;text-align:center;margin-bottom:4px;" for="sa-slider">
               Panel Angle: <strong id="sa-angle-val">${panelAngle}°</strong>
-              <span id="sa-angle-diff" class="sa-diff-badge"></span>
+              <span id="sa-angle-diff" style="font-size:0.74rem;margin-left:4px;"></span>
             </label>
             <input id="sa-slider" class="sa-slider" type="range" min="-80" max="80" step="1" value="${panelAngle}" />
             <div class="sa-nudge-row" role="group" aria-label="Fine angle controls">
@@ -243,21 +240,21 @@ export function createSolarAligner({ container, onComplete }) {
 
           <div class="sa-panel-box">
             <div class="sa-panel-title-row">
-              <span>🧹 Step 1: Click or Swipe Dust Patches Clean</span>
+              <span>🧹 Step 1: Click Dust Patches Clean</span>
               <span id="sa-clean-badge" class="b-tag is-warn">6 Dusty</span>
             </div>
             <div class="sa-solar-grid" id="sa-spots"></div>
-            <div class="sa-feedback-banner" id="sa-feedback">
+            <div class="sa-feedback-banner" id="sa-feedback" style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-top:4px;">
               👩‍🚀 Tip: Brush off all 6 dust clouds and match the Sun angle (${sunAngle}°)!
             </div>
           </div>
         </div>
 
-        <div class="mg-pause-overlay" id="sa-pause-overlay" hidden>
-          <div class="mg-pause-box">
+        <div class="mg-pause-overlay" id="sa-pause-overlay" style="position:absolute;inset:0;background:rgba(7,13,24,0.92);display:flex;align-items:center;justify-content:center;z-index:20;" hidden>
+          <div class="mg-pause-box" style="text-align:center;padding:16px;">
             <h3>⏸ Solar Tuner Paused</h3>
-            <p>Ready to keep tuning your South Pole solar towers?</p>
-            <div class="mg-btn-group">
+            <p style="color:var(--text-muted);font-size:0.84rem;">Ready to keep tuning your South Pole solar towers?</p>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
               <button type="button" class="btn btn-primary" id="sa-resume-btn">▶ Resume Tuning</button>
               <button type="button" class="btn btn-secondary" id="sa-reset-btn">🔄 Fresh Panel</button>
             </div>
@@ -265,7 +262,7 @@ export function createSolarAligner({ container, onComplete }) {
         </div>
 
         <div class="mg-actions-row">
-          <span class="mg-science-note">🔬 <strong>NASA Science:</strong> Power follows <em>P = P<sub>max</sub> × cos(θ)</em>. Facing the Sun directly (0° error) gives 100% power!</span>
+          <span class="mg-science-note">🔬 <strong>NASA Science:</strong> Power follows <em>P = P<sub>max</sub> × cos(θ)</em>. Facing Sun directly gives 100% power!</span>
           <button class="btn btn-primary btn-lg" type="button" id="sa-lock">⚡ Lock Array & Finish</button>
         </div>
       </div>
@@ -299,140 +296,143 @@ export function createSolarAligner({ container, onComplete }) {
       sunBeam.style.transform = `translate(-50%, -50%) rotate(${sunAngle}deg)`;
     }
 
-    function cleanSpotById(id) {
-      if (paused || phase !== 'playing') return;
-      const sp = spots.find((x) => x.id === id);
-      if (sp && !sp.cleaned) {
-        sp.cleaned = true;
-        renderSpots();
-        updateReadout();
-      }
-    }
-
     function renderSpots() {
       spotsBox.innerHTML = spots
-        .map(
-          (s) => `
-          <button type="button" class="sa-dust-spot ${s.cleaned ? 'is-clean' : ''}" data-spot="${s.id}" style="left:${s.x}%;top:${s.y}%">
-            ${s.cleaned ? '✨ Clean!' : '🌫️ Brush Me'}
-          </button>
-        `
-        )
+        .map((s) => {
+          return `
+            <div
+              class="sa-dust-spot ${s.cleaned ? 'is-clean' : ''}"
+              data-spot-id="${s.id}"
+              style="left:${s.x}%;top:${s.y}%;"
+            >
+              ${s.cleaned ? '✨ Clean' : '🌫️ Dust'}
+            </div>
+          `;
+        })
         .join('');
 
-      spotsBox.querySelectorAll('[data-spot]').forEach((btn) => {
-        const id = Number(btn.dataset.spot);
-        btn.addEventListener('click', () => cleanSpotById(id));
-        btn.addEventListener('pointerdown', () => {
-          isPointerDownOnGrid = true;
-          cleanSpotById(id);
+      spotsBox.querySelectorAll('[data-spot-id]').forEach((el) => {
+        el.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          cleanSpot(Number(el.dataset.spotId));
         });
-        btn.addEventListener('pointerenter', () => {
-          if (isPointerDownOnGrid) cleanSpotById(id);
+        el.addEventListener('pointerenter', () => {
+          if (isPointerDownOnGrid) {
+            cleanSpot(Number(el.dataset.spotId));
+          }
         });
       });
+    }
+
+    function cleanSpot(id) {
+      if (paused || phase !== 'playing') return;
+      const target = spots.find((s) => s.id === id);
+      if (!target || target.cleaned) return;
+      target.cleaned = true;
+      SOUNDS.action();
+      renderSpots();
+      updateMetrics();
+    }
+
+    function cleanNextSpot() {
+      const next = spots.find((s) => !s.cleaned);
+      if (next) cleanSpot(next.id);
     }
 
     spotsBox.addEventListener('pointerdown', () => {
       isPointerDownOnGrid = true;
     });
-
-    spotsBox.addEventListener('pointermove', (e) => {
-      if (paused || phase !== 'playing') return;
-      if (!isPointerDownOnGrid && e.buttons === 0 && e.pointerType !== 'touch') return;
-      const rect = spotsBox.getBoundingClientRect();
-      if (!rect || rect.width <= 0 || rect.height <= 0) return;
-      const px = ((e.clientX - rect.left) / rect.width) * 100;
-      const py = ((e.clientY - rect.top) / rect.height) * 100;
-      for (const s of spots) {
-        if (!s.cleaned && Math.hypot(px - (s.x + 12), py - (s.y + 12)) < 18) {
-          cleanSpotById(s.id);
-        }
-      }
-    });
-
     pointerUpHandler = () => {
       isPointerDownOnGrid = false;
     };
     if (typeof window !== 'undefined') {
-      window.addEventListener('pointerup', pointerUpHandler, { passive: true });
-      window.addEventListener('pointercancel', pointerUpHandler, { passive: true });
+      window.addEventListener('pointerup', pointerUpHandler);
+      window.addEventListener('pointercancel', pointerUpHandler);
     }
 
-    function updateReadout() {
+    function updateRiveDial(score) {
+      if (!dialSvgEl || !dialArcEl) return;
+      const circum = 56.5;
+      const offset = circum * (1 - Math.max(0, Math.min(1, score)));
+      dialArcEl.style.strokeDashoffset = String(offset.toFixed(1));
+      if (score >= 0.92) {
+        dialSvgEl.dataset.riveState = 'celebrate';
+      } else if (score >= 0.78) {
+        dialSvgEl.dataset.riveState = 'happy';
+      } else if (score >= 0.5) {
+        dialSvgEl.dataset.riveState = 'alert';
+      } else {
+        dialSvgEl.dataset.riveState = 'idle';
+      }
+    }
+
+    function updateMetrics() {
       panelBar.style.transform = `translate(-50%, -50%) rotate(${panelAngle}deg)`;
       angleVal.textContent = `${panelAngle}°`;
+      slider.value = String(panelAngle);
 
-      const errDeg = Math.abs(panelAngle - sunAngle);
-      if (angleDiffEl) {
-        angleDiffEl.textContent = errDeg === 0 ? '🎯 Exact 0° Lock!' : `(${errDeg}° off Sun)`;
-        angleDiffEl.className = `sa-diff-badge ${errDeg <= 5 ? 'sig-hot' : errDeg <= 18 ? 'sig-warm' : 'sig-cold'}`;
-      }
+      const diff = Math.abs(panelAngle - sunAngle);
+      angleDiffEl.textContent = diff === 0 ? '🎯 Perfect 0°!' : `${diff}° off`;
+      angleDiffEl.className = diff <= 4 ? 'sig-hot' : diff <= 15 ? 'sig-warm' : 'sig-cold';
 
-      const alignPct = Math.round(computeAlignment() * 100);
+      const alignRatio = computeAlignment();
+      alignEl.textContent = `${Math.round(alignRatio * 100)}%`;
+
       const cleanedCount = spots.filter((s) => s.cleaned).length;
-      const leftDust = TOTAL_DUST_SPOTS - cleanedCount;
-      const totalPct = Math.round(computeTotalEfficiency() * 100);
-
-      alignEl.textContent = `${alignPct}%`;
       dustEl.textContent = `${cleanedCount} / ${TOTAL_DUST_SPOTS}`;
-      totalEl.textContent = `${totalPct}%`;
-      totalEl.className = totalPct >= 80 ? 'sig-hot' : totalPct >= 55 ? 'sig-warm' : 'sig-cold';
-
-      if (dialSvgEl && dialArcEl) {
-        const circumference = 56.5;
-        const offset = Math.max(0, circumference * (1 - totalPct / 100));
-        dialArcEl.setAttribute('stroke-dashoffset', offset.toFixed(1));
-        dialSvgEl.dataset.riveState = totalPct >= 92 ? 'celebrate' : totalPct >= 78 ? 'happy' : totalPct >= 50 ? 'alert' : 'idle';
+      if (cleanBadgeEl) {
+        const dustyLeft = TOTAL_DUST_SPOTS - cleanedCount;
+        cleanBadgeEl.textContent = dustyLeft === 0 ? '✨ 100% Clean' : `${dustyLeft} Dusty`;
+        cleanBadgeEl.className = dustyLeft === 0 ? 'b-tag is-on' : 'b-tag is-warn';
       }
+
+      const totalEff = computeTotalEfficiency();
+      const totalPct = Math.round(totalEff * 100);
+      totalEl.textContent = `${totalPct}%`;
+      updateRiveDial(totalEff);
 
       if (powerBarEl) {
         powerBarEl.style.width = `${totalPct}%`;
       }
 
-      if (cleanBadgeEl) {
-        cleanBadgeEl.textContent = leftDust === 0 ? '✨ 100% Clean!' : `${leftDust} Dusty`;
-        cleanBadgeEl.className = `b-tag ${leftDust === 0 ? 'is-on' : 'is-warn'}`;
-      }
-
       if (feedbackEl) {
         if (totalPct >= 92) {
-          feedbackEl.textContent = '🌟 3-STAR POWER LOCK! Click "Lock Array & Finish" to supercharge the base!';
-          feedbackEl.className = 'sa-feedback-banner is-good';
+          feedbackEl.innerHTML = '🌟 <strong>PERFECT POWER (3 STARS ⭐⭐⭐)!</strong> Ready to lock in!';
+          feedbackEl.className = 'sa-feedback-banner sig-hot';
         } else if (totalPct >= 78) {
-          feedbackEl.textContent = '✅ Great output! You can Lock Array now, or clean/aim a tiny bit more for 3 Stars!';
-          feedbackEl.className = 'sa-feedback-banner is-good';
-        } else if (leftDust > 0 && errDeg > 12) {
-          feedbackEl.textContent = `🧹 Brush the ${leftDust} remaining dust patches AND aim closer to ${sunAngle}°!`;
-          feedbackEl.className = 'sa-feedback-banner is-info';
-        } else if (leftDust > 0) {
-          feedbackEl.textContent = `🧹 Almost there! Tap the last ${leftDust} grey dust patch${leftDust > 1 ? 'es' : ''} on the panel!`;
-          feedbackEl.className = 'sa-feedback-banner is-warn';
+          feedbackEl.innerHTML = '✅ <strong>GREAT OUTPUT (2 STARS ⭐⭐)!</strong> Meets mission quota!';
+          feedbackEl.className = 'sa-feedback-banner sig-hot';
+        } else if (cleanedCount < TOTAL_DUST_SPOTS && diff > 15) {
+          feedbackEl.innerHTML = `👩‍🚀 Brush remaining dust and rotate toward ${sunAngle}°!`;
+          feedbackEl.className = 'sa-feedback-banner sig-cold';
+        } else if (cleanedCount < TOTAL_DUST_SPOTS) {
+          feedbackEl.innerHTML = '🧹 Great angle! Now brush off the remaining grey dust spots!';
+          feedbackEl.className = 'sa-feedback-banner sig-mid';
         } else {
-          feedbackEl.textContent = `📐 Panel is sparkling clean! Now slide or nudge the angle to match ${sunAngle}°!`;
-          feedbackEl.className = 'sa-feedback-banner is-warn';
+          feedbackEl.innerHTML = `📐 Solar cells are clean! Now nudge the angle toward ${sunAngle}°!`;
+          feedbackEl.className = 'sa-feedback-banner sig-warm';
         }
       }
     }
 
-    function setPanelAngle(newAngle) {
-      if (paused || phase !== 'playing') return;
-      panelAngle = Math.max(-80, Math.min(80, Math.round(newAngle)));
-      slider.value = String(panelAngle);
-      updateReadout();
-    }
-
     slider.addEventListener('input', () => {
-      setPanelAngle(Number(slider.value));
+      if (paused || phase !== 'playing') return;
+      panelAngle = Number(slider.value);
+      updateMetrics();
     });
 
     container.querySelectorAll('[data-nudge]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        setPanelAngle(panelAngle + Number(btn.dataset.nudge));
+        if (paused || phase !== 'playing') return;
+        SOUNDS.click();
+        const delta = Number(btn.dataset.nudge);
+        panelAngle = Math.max(-80, Math.min(80, panelAngle + delta));
+        updateMetrics();
       });
     });
 
     function togglePause(force) {
+      SOUNDS.click();
       paused = typeof force === 'boolean' ? force : !paused;
       if (pauseOverlay) pauseOverlay.hidden = !paused;
       if (pauseBtn) {
@@ -449,67 +449,88 @@ export function createSolarAligner({ container, onComplete }) {
         return;
       }
       if (paused) return;
-      const isSliderFocused = typeof document !== 'undefined' && document.activeElement === slider;
-      if ((e.key === 'ArrowLeft' && !isSliderFocused) || e.key === 'a' || e.key === 'A') {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        setPanelAngle(panelAngle - (e.shiftKey ? 10 : 2));
-      } else if ((e.key === 'ArrowRight' && !isSliderFocused) || e.key === 'd' || e.key === 'D') {
+        panelAngle = Math.max(-80, panelAngle - 2);
+        updateMetrics();
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         e.preventDefault();
-        setPanelAngle(panelAngle + (e.shiftKey ? 10 : 2));
+        panelAngle = Math.min(80, panelAngle + 2);
+        updateMetrics();
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
-        const nextDirty = spots.find((s) => !s.cleaned);
-        if (nextDirty) cleanSpotById(nextDirty.id);
+        cleanNextSpot();
+      } else if (e.key === 'Enter') {
+        const activeTag = typeof document !== 'undefined' ? document.activeElement?.tagName : '';
+        if (activeTag !== 'BUTTON') {
+          e.preventDefault();
+          lockAndFinish();
+        }
       }
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', keyHandler);
     }
 
+    function lockAndFinish() {
+      if (paused || phase !== 'playing') return;
+      renderResults();
+    }
+
+    lockBtn.addEventListener('click', () => {
+      lockAndFinish();
+    });
+
     pauseBtn?.addEventListener('click', () => togglePause());
     resumeBtn?.addEventListener('click', () => togglePause(false));
-    resetBtn?.addEventListener('click', () => startGameplay());
-    helpBtn?.addEventListener('click', () => renderTutorial());
-    lockBtn?.addEventListener('click', () => renderResults());
+    resetBtn?.addEventListener('click', () => {
+      SOUNDS.click();
+      startGameplay();
+    });
+    helpBtn?.addEventListener('click', () => {
+      SOUNDS.click();
+      renderTutorial();
+    });
     exitBtn?.addEventListener('click', () => exitToMission());
 
     renderSpots();
-    updateReadout();
+    updateMetrics();
   }
 
   function renderResults() {
     phase = 'results';
     removeWindowListeners();
+
     const { score, success, stars, alignPct, cleanedCount, points } = computeResultMetrics();
     const starDisplay = '⭐'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
-    const totalPct = Math.round(score * 100);
-    const fact = NASA_SOLAR_FACTS[stars % NASA_SOLAR_FACTS.length];
+    const fact = NASA_SOLAR_FACTS[Math.floor(Math.random() * NASA_SOLAR_FACTS.length)];
+    const pctScore = Math.round(score * 100);
+
+    if (success) {
+      SOUNDS.fanfare();
+    } else {
+      SOUNDS.alert();
+    }
 
     container.innerHTML = `
       <div class="mg-card mg-results-card mg-animate-in" role="dialog" aria-label="Solar Aligner Results">
-        <div class="outcome-badge">${success ? '⚡ SOLAR ARRAY SUPERCHARGED!' : '☀️ SOLAR TUNING COMPLETE'}</div>
-        <h2>${
-          stars === 3
-            ? '3-Star Solar Engineer!'
-            : success
-            ? 'Great Job, Solar Specialist!'
-            : 'Keep Practicing, Junior Commander!'
-        }</h2>
+        <div class="outcome-badge">${success ? '⚡ SOLAR POWER OPTIMIZED!' : '🔋 ARRAY CALIBRATION SAVED'}</div>
+        <h2>${success ? 'Outstanding Solar Engineering!' : 'Good Effort, Junior Commander!'}</h2>
         <div class="outcome-stars" aria-label="${stars} out of 3 stars">${starDisplay}</div>
 
         <p class="mg-intro">
           ${
             success
-              ? `Your vertical solar panels are locked onto the South Pole Sun at ${totalPct}% efficiency! Battery charging is boosted across the whole outpost.`
-              : `Your solar panels reached ${totalPct}% efficiency (need 78%+ for full lock). Try brushing all 6 dust spots and matching ${sunAngle}°!`
+              ? `You achieved ${pctScore}% total electrical efficiency! Your batteries will charge at maximum speed.`
+              : `You achieved ${pctScore}% efficiency (target is 78%+ for optimal charging). Try again to clean all dust spots or return to your mission.`
           }
         </p>
 
         <div class="outcome-stats">
-          <div>🏆 Final Output: <strong>${totalPct}% (${points} pts)</strong></div>
-          <div>📐 Sun Angle Match: <strong>${alignPct}%</strong></div>
-          <div>🧹 Dust Brushed: <strong>${cleanedCount} / ${TOTAL_DUST_SPOTS} cells</strong></div>
-          <div>🔋 Mission Reward: <strong>${success ? '+15% Battery & +8 Science!' : '+4% Battery'}</strong></div>
+          <div>⚡ Total Output: <strong>${pctScore}% (${points} pts)</strong></div>
+          <div>📐 Sun Alignment: <strong>${alignPct}% Match</strong></div>
+          <div>🧹 Dust Removed: <strong>${cleanedCount} / ${TOTAL_DUST_SPOTS} Spots</strong></div>
+          <div>🔋 Mission Boost: <strong>${success ? '+15% Battery & +8 Science!' : '+5% Battery'}</strong></div>
         </div>
 
         <div class="fact-box">
@@ -518,13 +539,14 @@ export function createSolarAligner({ container, onComplete }) {
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="sa-retry-btn">🔄 Play Again (Retry)</button>
+          <button type="button" class="btn btn-secondary" id="sa-retry-btn">🔄 Fine-Tune Again (Retry)</button>
           <button type="button" class="btn btn-primary btn-lg" id="sa-done-btn">🌕 Return to Mission</button>
         </div>
       </div>
     `;
 
     container.querySelector('#sa-retry-btn')?.addEventListener('click', () => {
+      SOUNDS.click();
       startGameplay();
     });
     container.querySelector('#sa-done-btn')?.addEventListener('click', () => {

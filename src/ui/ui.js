@@ -1,5 +1,5 @@
-// B-S3 — DOM-based HUD, Building Inspector, Event Decision Modal, Tutorial,
-// Science Field Guide, and Mission Outcome Screens.
+// B-S3 — Professional Aerospace Game HUD, Building Inspector, Event Decision Modal,
+// Tutorial/Briefing, Science Field Guide, and Mission Outcome Screens.
 // Consumes read-only snapshots from `store` and dispatches named actions; never computes resource math.
 
 import { BALANCE } from '../data/gameBalance.js';
@@ -13,6 +13,7 @@ import {
   GLOSSARY,
   getContextualHint,
 } from '../data/educationContent.js';
+import { SOUNDS } from './soundFx.js';
 
 const BUILDING_ORDER = ['habitat', 'lifeSupport', 'solar', 'greenhouse', 'lab'];
 
@@ -35,19 +36,19 @@ function barClass(value, invert = false) {
 function renderCommanderVectorAvatar(stateKind = 'info') {
   const palette =
     stateKind === 'bad'
-      ? { glow: '#ef4444', visor: '#fecaca', mouth: 'M14 23 Q18 20 22 23' }
+      ? { glow: '#f16b70', visor: '#fecaca', mouth: 'M14 23 Q18 20 22 23' }
       : stateKind === 'warn'
-      ? { glow: '#f59e0b', visor: '#fde68a', mouth: 'M14 22 L22 22' }
+      ? { glow: '#f2b84b', visor: '#fde68a', mouth: 'M14 22 L22 22' }
       : stateKind === 'good'
-      ? { glow: '#4ade80', visor: '#bbf7d0', mouth: 'M13 21 Q18 25 23 21' }
-      : { glow: '#38bdf8', visor: '#bae6fd', mouth: 'M14 21 Q18 24 22 21' };
+      ? { glow: '#55c98a', visor: '#bbf7d0', mouth: 'M13 21 Q18 25 23 21' }
+      : { glow: '#39bdf2', visor: '#bae6fd', mouth: 'M14 21 Q18 24 22 21' };
 
   return `
     <svg class="rive-astro-avatar is-${stateKind}" viewBox="0 0 36 36" width="30" height="30" aria-hidden="true">
       <line x1="18" y1="2" x2="18" y2="7" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
       <circle class="rive-antenna-bulb" cx="18" cy="2.5" r="2.5" fill="${palette.glow}"/>
       <circle cx="18" cy="19" r="12.5" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
-      <rect x="8.5" y="12" width="19" height="13" rx="6.5" fill="#0f172a" stroke="${palette.glow}" stroke-width="1.4"/>
+      <rect x="8.5" y="12" width="19" height="13" rx="6.5" fill="#070d18" stroke="${palette.glow}" stroke-width="1.4"/>
       <circle class="rive-eye" cx="14" cy="17.5" r="1.6" fill="${palette.visor}"/>
       <circle class="rive-eye" cx="22" cy="17.5" r="1.6" fill="${palette.visor}"/>
       <path d="${palette.mouth}" stroke="${palette.visor}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
@@ -57,6 +58,7 @@ function renderCommanderVectorAvatar(stateKind = 'info') {
 
 export function mountUI({ root, store, openMinigame, onRestart, scene }) {
   let selectedBuilding = 'habitat';
+  let welcomeOpen = store.getState().mission.status === 'intro';
   let tutorialStepIndex = 0;
   let guideOpen = false;
   let guideTab = 'facts';
@@ -138,11 +140,12 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
 
         <div class="controls-cluster">
           <div class="speed-group" role="group" aria-label="Simulation speed">
-            <button type="button" class="btn btn-chip" data-speed="0" aria-pressed="false" title="Pause game">⏸</button>
+            <button type="button" class="btn btn-chip" data-speed="0" aria-pressed="false" title="Pause game (Space)">⏸</button>
             <button type="button" class="btn btn-chip is-active" data-speed="1" aria-pressed="true" title="Normal speed">1×</button>
             <button type="button" class="btn btn-chip" data-speed="2" aria-pressed="false" title="Fast speed">2×</button>
             <button type="button" class="btn btn-chip" data-speed="3" aria-pressed="false" title="Super fast speed">3×</button>
           </div>
+          <button type="button" class="btn btn-ghost" id="btn-sound" title="Toggle Sound (M)">${SOUNDS.isMuted() ? '🔇' : '🔊'}</button>
           <button type="button" class="btn btn-secondary" id="btn-guide" title="Open NASA Science Field Guide">📘 NASA Guide</button>
           <button type="button" class="btn btn-ghost" id="btn-restart" title="Start a fresh mission">↻ Reset</button>
         </div>
@@ -159,19 +162,19 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
         <aside class="hud-left-panel" aria-label="Outpost buildings and astronaut actions">
           <section class="panel-card">
             <div class="panel-title-row">
-              <h3>🏗️ Moon Base Buildings</h3>
-              <button type="button" class="btn btn-mini" id="btn-cam-overview">🎥 Full View</button>
+              <h3>🏗️ Base Buildings</h3>
+              <button type="button" class="btn btn-mini" id="btn-cam-overview" title="Press 0 for Overview">🎥 Full View</button>
             </div>
             <div class="building-list" id="ui-building-list" role="group" aria-label="Select a Moon base building"></div>
           </section>
 
           <section class="panel-card">
-            <h3>⚡ Quick Astronaut Actions</h3>
+            <h3>⚡ Quick Actions</h3>
             <div class="quick-actions" id="ui-quick-actions"></div>
           </section>
 
           <section class="panel-card">
-            <h3>🎮 Space Training Games</h3>
+            <h3>🎮 Space Simulators</h3>
             <div class="minigame-buttons">
               <button type="button" class="btn btn-accent" data-minigame="leakHunter">
                 <span class="mg-btn-title">🔍 Leak Hunter</span>
@@ -197,7 +200,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
           </section>
 
           <section class="panel-card log-card">
-            <h3>📡 Mission Control Updates</h3>
+            <h3>📡 Mission Control Radio</h3>
             <div class="log-feed" id="ui-log" role="log" aria-live="polite" aria-relevant="additions text"></div>
           </section>
         </aside>
@@ -206,8 +209,8 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       <!-- Toast message -->
       <div id="ui-toast" class="hud-toast" role="status" aria-live="polite" hidden></div>
 
-      <!-- Modal Overlays (Intro/Tutorial, Pending Event Decision, Science Guide, Win/Lose) -->
-      <div id="ui-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Mission Briefing and Science Guide" hidden>
+      <!-- Modal Overlays (Welcome, Briefing/Tutorial, Event Decision, Science Guide, Pause, Win/Lose) -->
+      <div id="ui-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Mission Interface" hidden>
         <div id="ui-modal-content" class="modal-box"></div>
       </div>
     </div>
@@ -225,6 +228,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
   const objProgressEl = root.querySelector('#ui-obj-progress');
   const logEl = root.querySelector('#ui-log');
   const toastEl = root.querySelector('#ui-toast');
+  const soundBtn = root.querySelector('#btn-sound');
   const modalBackdropEl = root.querySelector('#ui-modal-backdrop');
   const modalContentEl = root.querySelector('#ui-modal-content');
 
@@ -277,12 +281,15 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
   }
 
   function runAction(action) {
+    SOUNDS.action();
     const res = store.dispatch(action);
     if (!res.ok) {
+      SOUNDS.alert();
       showToast(`💡 ${res.message}`, 'warn');
     } else if (res.opensMinigame) {
       openMinigame(res.opensMinigame);
     } else if (res.message && action.type !== 'setSpeed') {
+      SOUNDS.success();
       showToast(`🌟 ${res.message}`, 'good');
     }
     return res;
@@ -290,6 +297,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
 
   function selectBuilding(buildingId, focus3D = true) {
     if (!BUILDING_INFO[buildingId]) return;
+    SOUNDS.click();
     selectedBuilding = buildingId;
     if (focus3D && scene && typeof scene.focusBuilding === 'function') {
       scene.focusBuilding(buildingId);
@@ -297,14 +305,24 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
     render(store.getState());
   }
 
-  // Topbar controls
+  // Topbar sound toggle
+  soundBtn?.addEventListener('click', () => {
+    const isMuted = SOUNDS.toggleMute();
+    soundBtn.textContent = isMuted ? '🔇' : '🔊';
+    showToast(isMuted ? '🔇 Sound muted' : '🔊 Sound enabled', 'info');
+    if (!isMuted) SOUNDS.click();
+  });
+
+  // Topbar speed controls
   root.querySelectorAll('[data-speed]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      SOUNDS.click();
       runAction({ type: 'setSpeed', speed: Number(btn.dataset.speed) });
     });
   });
 
   root.querySelector('#btn-cam-overview').addEventListener('click', () => {
+    SOUNDS.click();
     if (scene && typeof scene.focusBuilding === 'function') {
       scene.focusBuilding(null);
     }
@@ -312,14 +330,18 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
   });
 
   root.querySelector('#btn-guide').addEventListener('click', () => {
+    SOUNDS.click();
     guideOpen = true;
+    welcomeOpen = false;
     lastModalKey = '';
     renderModal(store.getState());
   });
 
   root.querySelector('#btn-restart').addEventListener('click', () => {
+    SOUNDS.click();
     onRestart();
     tutorialStepIndex = 0;
+    welcomeOpen = true;
     lastModalKey = '';
     const s = store.getState();
     prevMetrics = {
@@ -336,16 +358,9 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
     showToast('🌕 Started a fresh Lunar Mission!', 'info');
   });
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && guideOpen) {
-      guideOpen = false;
-      lastModalKey = '';
-      renderModal(store.getState());
-    }
-  });
-
   root.querySelectorAll('[data-minigame]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      SOUNDS.click();
       openMinigame(btn.dataset.minigame);
     });
   });
@@ -363,7 +378,6 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       shield: s.shieldLevel,
     };
 
-    // Show floating delta badge when a discrete jump (>= 3.5 units) happens
     const threshold = change?.type === 'action' ? 2.5 : 6;
     for (const key of ['oxygen', 'water', 'food', 'battery', 'radiation', 'crew']) {
       const diff = current[key] - prevMetrics[key];
@@ -379,9 +393,9 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
     }
     prevMetrics = current;
 
-    // Celebrate newly completed mission objectives!
     for (const obj of OBJECTIVES) {
       if (s.objectives[obj.id] && !prevObjectives[obj.id]) {
+        SOUNDS.fanfare();
         showToast(`🎉 Goal Complete: ${obj.icon} ${obj.text}`, 'good');
       }
     }
@@ -593,7 +607,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
     if (selectedBuilding === 'habitat') {
       specificControls = `
         <div class="insp-stat-grid">
-          <div>🛡️ Moon-Dirt Shield: <strong>${s.shieldLevel} / 3</strong></div>
+          <div>🛡️ Moon Shield: <strong>${s.shieldLevel} / 3</strong></div>
           <div>👩‍🚀 Storm Shelter: <strong>${s.crew.sheltered ? 'INSIDE' : 'Ready'}</strong></div>
         </div>
         <div class="insp-actions">
@@ -601,7 +615,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
             ${s.crew.sheltered ? '👩‍🚀 Exit Storm Shelter' : '🛡️ Enter Storm Shelter'}
           </button>
           <button type="button" class="btn btn-secondary" data-insp="shield" ${s.shieldLevel >= 3 ? 'disabled' : ''}>
-            🪨 Add Moon-Dirt Shield (−15% Power, −1 Kit)
+            🪨 Add Shield (−15% Power, −1 Kit)
           </button>
         </div>
       `;
@@ -724,9 +738,11 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       runAction({ type: 'collectIce' });
     });
     inspectorEl.querySelector('[data-insp="minigame-leak"]')?.addEventListener('click', () => {
+      SOUNDS.click();
       openMinigame('leakHunter');
     });
     inspectorEl.querySelector('[data-insp="minigame-solar"]')?.addEventListener('click', () => {
+      SOUNDS.click();
       openMinigame('solarAligner');
     });
   }
@@ -759,21 +775,32 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
   }
 
   function renderModal(s) {
+    const isPaused =
+      s.mission.status === 'running' &&
+      s.mission.speed === 0 &&
+      !s.mission.inMinigame &&
+      !guideOpen &&
+      !s.pendingDecision;
+
     const modalKey =
       s.mission.status === 'won' || s.mission.status === 'lost'
         ? `outcome:${s.mission.status}:${s.mission.stars}:${s.mission.day}:${Math.round(s.resources.research)}:${s.stats.harvests}`
-        : s.mission.status === 'intro'
+        : s.mission.status === 'intro' && welcomeOpen
+        ? 'welcome'
+        : s.mission.status === 'intro' && !welcomeOpen
         ? `intro:${tutorialStepIndex}`
         : s.pendingDecision && !s.mission.inMinigame
         ? `decision:${s.pendingDecision.instanceId}:${s.pendingDecision.eventId}`
         : guideOpen
         ? `guide:${guideTab}:${guideTopic}`
+        : isPaused
+        ? 'paused'
         : 'closed';
 
     if (modalKey === lastModalKey) return;
     lastModalKey = modalKey;
 
-    // Priority 1: Mission Won / Lost screen
+    // 1. Mission Won / Lost Screen
     if (s.mission.status === 'won' || s.mission.status === 'lost') {
       const won = s.mission.status === 'won';
       const stars = '⭐'.repeat(s.mission.stars) + '☆'.repeat(Math.max(0, 3 - s.mission.stars));
@@ -781,8 +808,8 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       modalBackdropEl.hidden = false;
       modalContentEl.innerHTML = `
         <div class="modal-card outcome-card mg-animate-in">
-          <div class="outcome-badge">${won ? '🎉 MISSION ACCOMPLISHED!' : '🛸 SAFE CREW RETURN'}</div>
-          <h2>${won ? 'Awesome Job, Junior Commander!' : 'Your Crew Returned Safely to Orbit!'}</h2>
+          <div class="outcome-badge">${won ? '🎉 MISSION ACCOMPLISHED!' : '🛸 CREW RETURN TO ORBIT'}</div>
+          <h2>${won ? 'Outstanding Leadership, Junior Commander!' : 'Crew Returned Safely to Lunar Orbit!'}</h2>
           ${won ? `<div class="outcome-stars" aria-label="${s.mission.stars} out of 3 stars">${stars}</div>` : ''}
           <p class="outcome-reason">${s.mission.outcomeReason || ''}</p>
           <div class="outcome-stats">
@@ -792,26 +819,115 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
             <div>🥬 Space Crops Grown: <strong>${s.stats.harvests}</strong></div>
           </div>
           <div class="fact-box">
-            <div class="fact-tag">🧠 WHAT YOU LEARNED ON THE MOON</div>
+            <div class="fact-tag">🧠 KEY LESSONS FROM THE MOON</div>
             <p>
-              Living on the Moon takes teamwork and smart balance: making <strong>breathing air from water</strong>,
-              saving <strong>battery power</strong> when shadows fall, brushing <strong>sticky Moon dust</strong> off solar panels,
-              and protecting astronauts inside a <strong>radiation shelter</strong> during solar storms!
+              Establishing a lunar settlement requires engineering balance: splitting <strong>water into breathing oxygen</strong>,
+              storing <strong>battery power</strong> before mountains cast long shadows, brushing <strong>jagged Moon dust</strong>
+              off solar cells, and protecting astronauts inside a <strong>water-walled storm shelter</strong> during solar storms!
             </p>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-primary btn-lg" id="modal-restart">🚀 Play Again (New Mission)</button>
+            <button type="button" class="btn btn-secondary" id="modal-guide">📘 Review Science Guide</button>
+            <button type="button" class="btn btn-primary btn-lg" id="modal-restart">🚀 Start Next Mission</button>
           </div>
         </div>
       `;
+      modalContentEl.querySelector('#modal-guide')?.addEventListener('click', () => {
+        guideOpen = true;
+        renderModal(store.getState());
+      });
       modalContentEl.querySelector('#modal-restart')?.addEventListener('click', () => {
         onRestart();
       });
       return;
     }
 
-    // Priority 2: Intro / Onboarding Tutorial
-    if (s.mission.status === 'intro') {
+    // 2. Cinematic Welcome & Main Menu Screen
+    if (s.mission.status === 'intro' && welcomeOpen) {
+      modalBackdropEl.hidden = false;
+      modalContentEl.innerHTML = `
+        <div class="modal-card welcome-card mg-animate-in">
+          <span class="welcome-tag">NASA SPACE APPS CHALLENGE 2026 · TEAM DOOMED CREW</span>
+          <h1 class="welcome-title">JUNIOR ASTRONAUT MISSION TRAINER</h1>
+          <p class="welcome-subtitle">LUNAR SOUTH POLE EXPEDITION · BASE CAMP SHACKLETON</p>
+
+          <div class="welcome-mission-grid">
+            <div class="welcome-stat-cell">
+              <span class="welcome-stat-label">EXPEDITION</span>
+              <strong class="welcome-stat-val">7 Moon Days</strong>
+            </div>
+            <div class="welcome-stat-cell">
+              <span class="welcome-stat-label">CREW SIZE</span>
+              <strong class="welcome-stat-val">4 Astronauts</strong>
+            </div>
+            <div class="welcome-stat-cell">
+              <span class="welcome-stat-label">ENVIRONMENT</span>
+              <strong class="welcome-stat-val">Lunar South Pole</strong>
+            </div>
+            <div class="welcome-stat-cell">
+              <span class="welcome-stat-label">RESEARCH GOAL</span>
+              <strong class="welcome-stat-val">100 Science Pts</strong>
+            </div>
+          </div>
+
+          <p class="mg-intro">
+            Welcome to mission control! As Junior Mission Commander, you will manage life support, allocate limited electrical power,
+            grow space crops, harvest crater ice, and protect your crew from solar radiation on the Moon!
+          </p>
+
+          <div class="welcome-actions-list">
+            <button type="button" class="btn btn-primary btn-lg btn-full" id="welcome-start">
+              🚀 Start Mission Briefing & Launch
+            </button>
+            <button type="button" class="btn btn-secondary btn-full" id="welcome-quick">
+              ⚡ Quick Launch (Skip Briefing)
+            </button>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn btn-secondary" style="flex:1" id="welcome-sim-leak">
+                🔍 Leak Hunter Sim
+              </button>
+              <button type="button" class="btn btn-secondary" style="flex:1" id="welcome-sim-solar">
+                ☀️ Solar Aligner Sim
+              </button>
+            </div>
+            <button type="button" class="btn btn-ghost btn-full" id="welcome-guide">
+              📘 NASA Science Field Guide & Sources
+            </button>
+          </div>
+        </div>
+      `;
+
+      modalContentEl.querySelector('#welcome-start')?.addEventListener('click', () => {
+        SOUNDS.click();
+        welcomeOpen = false;
+        tutorialStepIndex = 0;
+        renderModal(store.getState());
+      });
+      modalContentEl.querySelector('#welcome-quick')?.addEventListener('click', () => {
+        SOUNDS.fanfare();
+        welcomeOpen = false;
+        store.dispatch({ type: 'finishTutorial' });
+        store.dispatch({ type: 'startMission' });
+        showToast('🚀 Expedition underway! Keep your astronauts safe!', 'good');
+      });
+      modalContentEl.querySelector('#welcome-sim-leak')?.addEventListener('click', () => {
+        SOUNDS.click();
+        openMinigame('leakHunter');
+      });
+      modalContentEl.querySelector('#welcome-sim-solar')?.addEventListener('click', () => {
+        SOUNDS.click();
+        openMinigame('solarAligner');
+      });
+      modalContentEl.querySelector('#welcome-guide')?.addEventListener('click', () => {
+        SOUNDS.click();
+        guideOpen = true;
+        renderModal(store.getState());
+      });
+      return;
+    }
+
+    // 3. Step-by-Step Interactive Mission Briefing
+    if (s.mission.status === 'intro' && !welcomeOpen) {
       const step = TUTORIAL_STEPS[tutorialStepIndex] || TUTORIAL_STEPS[0];
       const dots = TUTORIAL_STEPS.map(
         (_, idx) => `<span class="tut-dot ${idx === tutorialStepIndex ? 'is-active' : ''}"></span>`
@@ -819,22 +935,22 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       modalBackdropEl.hidden = false;
       modalContentEl.innerHTML = `
         <div class="modal-card tutorial-card mg-animate-in">
-          <div class="tutorial-step-tag">JUNIOR ASTRONAUT BRIEFING · STEP ${tutorialStepIndex + 1} OF ${TUTORIAL_STEPS.length}</div>
+          <div class="tutorial-step-tag">MISSION BRIEFING · STEP ${tutorialStepIndex + 1} OF ${TUTORIAL_STEPS.length}</div>
           <h2>${step.icon} ${step.title}</h2>
           <p class="tutorial-body">${step.body.replace(/\n/g, '<br/>')}</p>
           <div class="fact-box">
-            <div class="fact-tag">💡 HELPFUL TIP</div>
+            <div class="fact-tag">💡 COMMANDER GUIDANCE</div>
             <p>${step.tip}</p>
           </div>
-          <div class="tut-dots-row" aria-hidden="true">${dots}</div>
+          <div class="tut-dots-row" aria-hidden="true" style="display:flex;gap:6px;justify-content:center;margin:12px 0;">${dots}</div>
           <div class="modal-actions">
             ${
               tutorialStepIndex > 0
                 ? `<button type="button" class="btn btn-ghost" id="tut-prev">← Back</button>`
-                : `<span></span>`
+                : `<button type="button" class="btn btn-ghost" id="tut-welcome">← Main Menu</button>`
             }
             <div class="modal-actions-right">
-              <button type="button" class="btn btn-secondary" id="tut-skip">🚀 Start Mission Now</button>
+              <button type="button" class="btn btn-secondary" id="tut-skip">⚡ Quick Launch</button>
               ${
                 tutorialStepIndex < TUTORIAL_STEPS.length - 1
                   ? `<button type="button" class="btn btn-primary" id="tut-next">Next →</button>`
@@ -844,39 +960,48 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
           </div>
         </div>
       `;
+      modalContentEl.querySelector('#tut-welcome')?.addEventListener('click', () => {
+        SOUNDS.click();
+        welcomeOpen = true;
+        renderModal(store.getState());
+      });
       modalContentEl.querySelector('#tut-prev')?.addEventListener('click', () => {
+        SOUNDS.click();
         tutorialStepIndex = Math.max(0, tutorialStepIndex - 1);
         renderModal(store.getState());
       });
       modalContentEl.querySelector('#tut-next')?.addEventListener('click', () => {
+        SOUNDS.click();
         tutorialStepIndex = Math.min(TUTORIAL_STEPS.length - 1, tutorialStepIndex + 1);
         renderModal(store.getState());
       });
       const startNow = () => {
+        SOUNDS.fanfare();
         store.dispatch({ type: 'finishTutorial' });
         store.dispatch({ type: 'startMission' });
-        showToast('🚀 Mission started! Keep your astronauts happy and safe!', 'good');
+        showToast('🚀 Expedition launched! Keep your astronauts happy and safe!', 'good');
       };
       modalContentEl.querySelector('#tut-skip')?.addEventListener('click', startNow);
       modalContentEl.querySelector('#tut-launch')?.addEventListener('click', startNow);
       return;
     }
 
-    // Priority 3: Pending Mission Event Decision
+    // 4. Pending Mission Event Decision
     if (s.pendingDecision && !s.mission.inMinigame) {
       const { instanceId, eventId } = s.pendingDecision;
       const def = MISSION_EVENTS[eventId];
       if (def) {
+        SOUNDS.alert();
         const topicFacts = factsFor(def.topic || 'moon');
         const fact = topicFacts[0];
         modalBackdropEl.hidden = false;
         modalContentEl.innerHTML = `
           <div class="modal-card decision-card mg-animate-in">
-            <div class="decision-badge">📡 MISSION ALERT · DAY ${s.mission.day}</div>
+            <div class="decision-badge">📡 MISSION CONTROL PRIORITY · DAY ${s.mission.day}</div>
             <h2>${def.icon} ${def.title}</h2>
             <p class="decision-body">${def.kidText}</p>
             <div class="fact-box">
-              <div class="fact-tag">📘 WHY THIS HAPPENS IN SPACE</div>
+              <div class="fact-tag">📘 WHY THIS HAPPENS ON THE MOON</div>
               <p>${def.lesson}</p>
               ${fact ? `<p class="fact-sub"><strong>NASA Fact (${fact.id}):</strong> ${fact.kidText}</p>` : ''}
             </div>
@@ -907,7 +1032,60 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       }
     }
 
-    // Priority 4: NASA Science Field Guide
+    // 5. Tactical Pause Menu
+    if (isPaused) {
+      modalBackdropEl.hidden = false;
+      modalContentEl.innerHTML = `
+        <div class="modal-card pause-card mg-animate-in">
+          <span class="welcome-tag">SIMULATION ON HOLD</span>
+          <h2>⏸ Mission Paused</h2>
+          <p class="mg-intro">Take a breath, Junior Commander! The Moon base simulation clock is stopped.</p>
+          <div class="pause-actions">
+            <button type="button" class="btn btn-primary btn-lg btn-full" id="pause-resume">
+              ▶ Resume Mission (Space / Esc)
+            </button>
+            <button type="button" class="btn btn-secondary btn-full" id="pause-guide">
+              📘 NASA Science Field Guide
+            </button>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn btn-secondary" style="flex:1" id="pause-leak">
+                🔍 Leak Hunter Sim
+              </button>
+              <button type="button" class="btn btn-secondary" style="flex:1" id="pause-solar">
+                ☀️ Solar Aligner Sim
+              </button>
+            </div>
+            <button type="button" class="btn btn-ghost btn-full" id="pause-reset">
+              ↻ Abort & Restart Mission
+            </button>
+          </div>
+        </div>
+      `;
+      modalContentEl.querySelector('#pause-resume')?.addEventListener('click', () => {
+        SOUNDS.click();
+        runAction({ type: 'setSpeed', speed: 1 });
+      });
+      modalContentEl.querySelector('#pause-guide')?.addEventListener('click', () => {
+        SOUNDS.click();
+        guideOpen = true;
+        renderModal(store.getState());
+      });
+      modalContentEl.querySelector('#pause-leak')?.addEventListener('click', () => {
+        SOUNDS.click();
+        openMinigame('leakHunter');
+      });
+      modalContentEl.querySelector('#pause-solar')?.addEventListener('click', () => {
+        SOUNDS.click();
+        openMinigame('solarAligner');
+      });
+      modalContentEl.querySelector('#pause-reset')?.addEventListener('click', () => {
+        SOUNDS.click();
+        onRestart();
+      });
+      return;
+    }
+
+    // 6. NASA Science Field Guide
     if (guideOpen) {
       const topics = ['moon', 'oxygen', 'water', 'power', 'food', 'radiation', 'habitat'];
       const topicFacts = factsFor(guideTopic);
@@ -916,7 +1094,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
         <div class="modal-card guide-card mg-animate-in">
           <div class="mg-header">
             <div>
-              <span class="mg-badge">NASA ARTEMIS & ISS SCIENCE GUIDE</span>
+              <span class="mg-badge">NASA ARTEMIS & ISS SCIENCE DATABASE</span>
               <h2>📘 Junior Astronaut Science Field Guide</h2>
             </div>
             <button type="button" class="btn btn-ghost" id="guide-close" aria-label="Close NASA Science Field Guide">✕ Close</button>
@@ -925,7 +1103,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
             <button type="button" role="tab" aria-selected="${guideTab === 'facts'}" class="btn btn-chip ${guideTab === 'facts' ? 'is-active' : ''}" data-gtab="facts">🔬 Real NASA Facts (${FACTS.length})</button>
             <button type="button" role="tab" aria-selected="${guideTab === 'glossary'}" class="btn btn-chip ${guideTab === 'glossary' ? 'is-active' : ''}" data-gtab="glossary">📖 Space Words</button>
             <button type="button" role="tab" aria-selected="${guideTab === 'sim'}" class="btn btn-chip ${guideTab === 'sim' ? 'is-active' : ''}" data-gtab="sim">⚖️ Real Space vs Game</button>
-            <button type="button" role="tab" aria-selected="${guideTab === 'sources'}" class="btn btn-chip ${guideTab === 'sources' ? 'is-active' : ''}" data-gtab="sources">🔗 NASA Links (${Object.keys(SOURCES).length})</button>
+            <button type="button" role="tab" aria-selected="${guideTab === 'sources'}" class="btn btn-chip ${guideTab === 'sources' ? 'is-active' : ''}" data-gtab="sources">🔗 NASA Sources (${Object.keys(SOURCES).length})</button>
           </div>
 
           ${
@@ -946,7 +1124,7 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
                   <div class="guide-item">
                     <div class="fact-tag">${f.id} · ${f.label} · Sources: ${f.sourceIds.join(', ')}</div>
                     <p><strong>${f.kidText}</strong></p>
-                    <small class="guide-caveat">How our game uses this: ${f.caveat}</small>
+                    <small class="guide-caveat">Game simulation translation: ${f.caveat}</small>
                   </div>
                 `
                   )
@@ -1002,17 +1180,20 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
       `;
 
       modalContentEl.querySelector('#guide-close')?.addEventListener('click', () => {
+        SOUNDS.click();
         guideOpen = false;
         renderModal(store.getState());
       });
       modalContentEl.querySelectorAll('[data-gtab]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          SOUNDS.click();
           guideTab = btn.dataset.gtab;
           renderModal(store.getState());
         });
       });
       modalContentEl.querySelectorAll('[data-gtopic]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          SOUNDS.click();
           guideTopic = btn.dataset.gtopic;
           renderModal(store.getState());
         });
@@ -1035,11 +1216,43 @@ export function mountUI({ root, store, openMinigame, onRestart, scene }) {
     renderModal(snapshot);
   }
 
-  // Game UI Database hotkey navigation (1-5 to select buildings, 0 for Full View)
+  // Keyboard navigation
   window.addEventListener('keydown', (e) => {
     const s = store.getState();
-    if (s.mission.inMinigame || !modalBackdropEl.hidden) return;
+    if (s.mission.inMinigame) return;
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
+    if (e.key === 'Escape') {
+      if (guideOpen) {
+        guideOpen = false;
+        lastModalKey = '';
+        renderModal(store.getState());
+      } else if (s.mission.status === 'running') {
+        const nextSpeed = s.mission.speed === 0 ? 1 : 0;
+        runAction({ type: 'setSpeed', speed: nextSpeed });
+      }
+      return;
+    }
+
+    if (e.key === ' ' || e.code === 'Space') {
+      if (!modalBackdropEl.hidden && !lastModalKey.includes('paused')) return;
+      if (s.mission.status === 'running') {
+        e.preventDefault();
+        const nextSpeed = s.mission.speed === 0 ? 1 : 0;
+        runAction({ type: 'setSpeed', speed: nextSpeed });
+      }
+      return;
+    }
+
+    if (e.key === 'm' || e.key === 'M') {
+      const isMuted = SOUNDS.toggleMute();
+      if (soundBtn) soundBtn.textContent = isMuted ? '🔇' : '🔊';
+      showToast(isMuted ? '🔇 Sound muted' : '🔊 Sound enabled', 'info');
+      return;
+    }
+
+    if (!modalBackdropEl.hidden) return;
+
     const idx = Number(e.key) - 1;
     if (idx >= 0 && idx < BUILDING_ORDER.length) {
       selectBuilding(BUILDING_ORDER[idx], true);

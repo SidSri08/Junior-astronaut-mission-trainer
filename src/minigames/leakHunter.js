@@ -1,6 +1,8 @@
 // C-S3 — Minigame 1: Leak Hunter (Oxygen & Pressure Sensor Educational Minigame).
 // Contract: createLeakHunter({ container, context, onComplete }) -> { start(), destroy() }
 
+import { SOUNDS } from '../ui/soundFx.js';
+
 const LEAK_TYPES = [
   { label: 'Airlock Seam Crack', hitRadius: 0.105, points: 300 },
   { label: 'Window Seal Micro-Leak', hitRadius: 0.095, points: 350 },
@@ -28,6 +30,7 @@ export function createLeakHunter({ container, onComplete }) {
   let probesUsed = 0;
   let bonusPoints = 0;
   let tutorialPracticeSealed = false;
+  let lastScanSoundTime = 0;
 
   function safeTimeout(fn, ms) {
     const id = setTimeout(() => {
@@ -56,7 +59,6 @@ export function createLeakHunter({ container, onComplete }) {
 
   function generateLeaks() {
     const arr = [];
-    // Spread 3 leaks across left, middle, right zones so they never overlap
     const zones = [
       { minX: 0.14, maxX: 0.36, minY: 0.2, maxY: 0.78 },
       { minX: 0.4, maxX: 0.62, minY: 0.18, maxY: 0.78 },
@@ -108,6 +110,7 @@ export function createLeakHunter({ container, onComplete }) {
 
   function exitToMission() {
     if (destroyed) return;
+    SOUNDS.click();
     clearAllTimers();
     removeKeyHandler();
     const { success, score } = computeResultMetrics();
@@ -128,62 +131,56 @@ export function createLeakHunter({ container, onComplete }) {
         <div class="mg-header">
           <div>
             <span class="mg-badge">MINIGAME 1 · INTERACTIVE TUTORIAL</span>
-            <h2>🔍 Leak Hunter: How to Seal Hull Leaks!</h2>
+            <h2>🔍 Leak Hunter: Ultrasonic Hull Scanner</h2>
           </div>
           <button class="btn btn-ghost mg-close" type="button" data-action="close">✕ Back to Base</button>
         </div>
 
         <p class="mg-intro">
-          Oh no! Tiny space rocks poked <strong>3 invisible holes</strong> in our Moon home’s wall!
-          Help our astronauts find the hissing air leaks before the air runs low.
+          Emergency alert! Micrometeoroids poked <strong>3 tiny air leaks</strong> in our Moon habitat wall!
+          Use your ultrasonic directional microphone to find the hissing sounds and seal them tight.
         </p>
 
-        <div class="mg-tutorial-steps">
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">📡</div>
-            <div>
-              <strong>1. Move Your Scanner</strong>
-              <p>Slide your mouse, drag with your finger, or use Arrow / WASD keys across the blue wall grid to listen for escaping air.</p>
-            </div>
+        <div class="mg-tutorial-steps" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">📡</div>
+            <strong style="font-size:0.82rem;">1. Move Ultrasonic Scanner</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">Slide your mouse, tap with touch, or use Arrow / WASD keys across the blue habitat wall grid.</p>
           </div>
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">🌡️</div>
-            <div>
-              <strong>2. Follow the Color Signal</strong>
-              <p>
-                <span class="sig-cold">🔵 Cold</span> = Far away ·
-                <span class="sig-mid">🟡 Warm</span> = Getting closer ·
-                <span class="sig-hot">🔴 PINPOINT!</span> = Right on top!
-              </p>
-            </div>
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">🎯</div>
+            <strong style="font-size:0.82rem;">2. Follow Signal Compass</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">
+              <span class="sig-cold">🔵 Cold</span> = Far ·
+              <span class="sig-mid">🟡 Warm</span> = Close ·
+              <span class="sig-hot">🔴 PINPOINT!</span> = Right on top!
+            </p>
           </div>
-          <div class="mg-tut-step">
-            <div class="mg-tut-icon">🩹</div>
-            <div>
-              <strong>3. Click or Press Space to Patch!</strong>
-              <p>When your ring turns <strong class="sig-hot">RED / GREEN PINPOINT</strong>, click (or press Space) to fire a space patch!</p>
-            </div>
+          <div class="mg-tut-step" style="background:rgba(16,27,43,0.85);border:1px solid var(--panel-border-subtle);border-radius:var(--radius-sm);padding:10px;">
+            <div style="font-size:1.4rem;margin-bottom:4px;">🩹</div>
+            <strong style="font-size:0.82rem;">3. Click or Space to Seal</strong>
+            <p style="font-size:0.74rem;color:var(--text-muted);margin:4px 0 0 0;line-height:1.35;">When your sensor ring glows <strong class="sig-hot">PINPOINT</strong>, click or press Space to fire a permanent epoxy patch!</p>
           </div>
         </div>
 
-        <div class="mg-practice-box">
-          <div class="mg-practice-label">
-            🎯 <strong>Try It Now (Practice Target):</strong> Click the glowing red leak spot below to test your patch launcher!
+        <div class="mg-practice-box" style="background:rgba(16,27,43,0.9);border:1px dashed var(--accent-primary);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+          <div style="font-size:0.8rem;margin-bottom:8px;">
+            🎯 <strong>Interactive Practice:</strong> Click the hissing leak spot below to test your patch launcher!
           </div>
-          <div class="mg-practice-target-row">
-            <button type="button" class="mg-practice-leak ${tutorialPracticeSealed ? 'is-sealed' : ''}" id="lh-practice-btn">
-              ${tutorialPracticeSealed ? '✅ Practice Leak Sealed!' : '💨 Hissing Practice Leak — Click Me!'}
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn ${tutorialPracticeSealed ? 'btn-secondary' : 'btn-primary btn-pulse'}" id="lh-practice-btn">
+              ${tutorialPracticeSealed ? '✅ Test Leak Sealed!' : '💨 Hissing Test Leak — Click Me!'}
             </button>
-            <span id="lh-practice-status" class="mg-practice-feedback ${tutorialPracticeSealed ? 'sig-hot' : ''}" role="status" aria-live="polite">
-              ${tutorialPracticeSealed ? '🎉 Awesome shot! You are ready for the real hull wall!' : 'Waiting for your test patch…'}
+            <span id="lh-practice-status" class="mg-practice-feedback ${tutorialPracticeSealed ? 'sig-hot' : ''}" style="font-size:0.8rem;">
+              ${tutorialPracticeSealed ? '🎉 Bullseye! You are ready to scan the actual Moon base hull!' : 'Waiting for your test patch…'}
             </span>
           </div>
         </div>
 
         <div class="mg-actions-row">
-          <span class="mg-science-note">💡 <strong>Astronaut Tip:</strong> Watch the little arrow inside your scanner ring—it points toward the nearest leak!</span>
+          <span class="mg-science-note">💡 <strong>NASA Tip:</strong> Watch the little arrow inside your scanner ring—it points straight to the leak!</span>
           <div class="mg-btn-group">
-            <button type="button" class="btn btn-primary btn-lg" id="lh-start-btn">🚀 Start Scanning (3 Leaks)!</button>
+            <button type="button" class="btn btn-primary btn-lg" id="lh-start-btn">🚀 Start Scanner (30s Timer)</button>
           </div>
         </div>
       </div>
@@ -192,16 +189,18 @@ export function createLeakHunter({ container, onComplete }) {
     const practiceBtn = container.querySelector('#lh-practice-btn');
     const practiceStatus = container.querySelector('#lh-practice-status');
     practiceBtn?.addEventListener('click', () => {
+      SOUNDS.patch();
       tutorialPracticeSealed = true;
-      practiceBtn.className = 'mg-practice-leak is-sealed';
-      practiceBtn.textContent = '✅ Practice Leak Sealed!';
+      practiceBtn.className = 'btn btn-secondary';
+      practiceBtn.textContent = '✅ Test Leak Sealed!';
       if (practiceStatus) {
-        practiceStatus.textContent = '🎉 Awesome shot! You are ready for the real hull wall!';
+        practiceStatus.textContent = '🎉 Bullseye! You are ready to scan the actual Moon base hull!';
         practiceStatus.className = 'mg-practice-feedback sig-hot';
       }
     });
 
     container.querySelector('#lh-start-btn')?.addEventListener('click', () => {
+      SOUNDS.click();
       startGameplay();
     });
 
@@ -228,8 +227,8 @@ export function createLeakHunter({ container, onComplete }) {
             <span class="mg-badge">MINIGAME 1 · OXYGEN & HULL PRESSURE</span>
             <h2>🔍 Leak Hunter: Ultrasonic Hull Scanner</h2>
           </div>
-          <div class="mg-header-btns">
-            <button class="btn btn-secondary btn-mini" type="button" id="lh-help-btn" title="Show How to Play">❓ How to Play</button>
+          <div class="mg-header-btns" style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-mini" type="button" id="lh-help-btn" title="How to Play">❓ Help</button>
             <button class="btn btn-secondary btn-mini" type="button" id="lh-pause-btn">⏸ Pause</button>
             <button class="btn btn-ghost btn-mini" type="button" data-action="exit">✕ Exit</button>
           </div>
@@ -243,9 +242,9 @@ export function createLeakHunter({ container, onComplete }) {
         <div class="mg-stats">
           <div class="mg-stat">⏱️ Time Left: <strong id="lh-time">${timeLeft}s</strong></div>
           <div class="mg-stat">🩹 Leaks Sealed: <strong id="lh-count">0 / ${leaks.length}</strong></div>
-          <div class="mg-stat lh-signal-stat">
+          <div class="mg-stat" style="display:inline-flex;align-items:center;gap:6px;">
             📡 Ultrasonic Signal: <strong id="lh-signal" class="sig-cold">Move scanner…</strong>
-            <svg class="rive-wave-gauge" id="lh-wave-svg" data-rive-state="cold" width="64" height="20" viewBox="0 0 64 20" aria-hidden="true">
+            <svg class="rive-wave-gauge" id="lh-wave-svg" data-rive-state="cold" width="60" height="18" viewBox="0 0 64 20" aria-hidden="true">
               <path id="lh-wave-path" d="M 2 10 Q 10 8, 18 10 T 34 10 T 50 10 T 62 10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
             </svg>
           </div>
@@ -264,11 +263,11 @@ export function createLeakHunter({ container, onComplete }) {
             <div class="lh-reticle-arrow" id="lh-arrow">➤</div>
           </div>
           <div class="lh-feedback-banner" id="lh-feedback">👩‍🚀 Move your scanner over the wall to detect the ultrasonic hiss!</div>
-          <div class="mg-pause-overlay" id="lh-pause-overlay" hidden>
-            <div class="mg-pause-box">
+          <div class="mg-pause-overlay" id="lh-pause-overlay" style="position:absolute;inset:0;background:rgba(7,13,24,0.92);display:flex;align-items:center;justify-content:center;z-index:20;" hidden>
+            <div class="mg-pause-box" style="text-align:center;padding:16px;">
               <h3>⏸ Game Paused</h3>
-              <p>Take a breath, Junior Commander! Your oxygen timer is paused.</p>
-              <div class="mg-btn-group">
+              <p style="color:var(--text-muted);font-size:0.84rem;">Timer is paused. Take your time, Junior Commander!</p>
+              <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
                 <button type="button" class="btn btn-primary" id="lh-resume-btn">▶ Resume Scanning</button>
                 <button type="button" class="btn btn-secondary" id="lh-restart-btn">🔄 Restart Game</button>
               </div>
@@ -276,8 +275,9 @@ export function createLeakHunter({ container, onComplete }) {
           </div>
         </div>
 
-        <div class="mg-footer">
-          <span class="mg-science-note">🔬 <strong>NASA Science:</strong> On the Space Station, escaping air makes an ultrasonic whistle in vacuum that special sensors can hear!</span>
+        <div class="mg-footer" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+          <span class="mg-science-note">🔬 <strong>NASA Science:</strong> Escaping air in vacuum creates high-frequency ultrasonic waves!</span>
+          <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);" id="lh-coords">FREQ: 39.4 kHz</span>
         </div>
       </div>
     `;
@@ -291,9 +291,16 @@ export function createLeakHunter({ container, onComplete }) {
     const timeBarEl = container.querySelector('#lh-time-bar');
     const countEl = container.querySelector('#lh-count');
     const signalEl = container.querySelector('#lh-signal');
+    const coordsEl = container.querySelector('#lh-coords');
     const waveSvgEl = container.querySelector('#lh-wave-svg');
     const wavePathEl = container.querySelector('#lh-wave-path');
     const feedbackEl = container.querySelector('#lh-feedback');
+    const pauseBtn = container.querySelector('#lh-pause-btn');
+    const pauseOverlay = container.querySelector('#lh-pause-overlay');
+    const resumeBtn = container.querySelector('#lh-resume-btn');
+    const restartBtn = container.querySelector('#lh-restart-btn');
+    const helpBtn = container.querySelector('#lh-help-btn');
+    const exitBtn = container.querySelector('[data-action="exit"]');
 
     function updateRiveWaveform(state) {
       if (!waveSvgEl || !wavePathEl) return;
@@ -308,12 +315,6 @@ export function createLeakHunter({ container, onComplete }) {
         wavePathEl.setAttribute('d', 'M 2 10 Q 10 8.5, 18 10 T 34 10 T 50 10 T 62 10');
       }
     }
-    const pauseBtn = container.querySelector('#lh-pause-btn');
-    const pauseOverlay = container.querySelector('#lh-pause-overlay');
-    const resumeBtn = container.querySelector('#lh-resume-btn');
-    const restartBtn = container.querySelector('#lh-restart-btn');
-    const helpBtn = container.querySelector('#lh-help-btn');
-    const exitBtn = container.querySelector('[data-action="exit"]');
 
     function setFeedback(text, kind = 'info') {
       if (!feedbackEl) return;
@@ -326,6 +327,16 @@ export function createLeakHunter({ container, onComplete }) {
       reticle.style.left = `${nx * 100}%`;
       reticle.style.top = `${ny * 100}%`;
 
+      if (coordsEl) {
+        coordsEl.textContent = `X: ${Math.round(nx * 100)}% · Y: ${Math.round(ny * 100)}% | 39.4 kHz`;
+      }
+
+      const now = Date.now();
+      if (now - lastScanSoundTime > 320) {
+        lastScanSoundTime = now;
+        SOUNDS.scan();
+      }
+
       const { leak, dist } = nearestUnsealed(nx, ny);
       if (!leak) {
         signalEl.textContent = '🎉 ALL LEAKS SEALED!';
@@ -336,17 +347,15 @@ export function createLeakHunter({ container, onComplete }) {
         return;
       }
 
-      // Rotate directional helper arrow toward nearest unsealed leak
       if (arrowEl) {
         const angleDeg = (Math.atan2(leak.y - ny, leak.x - nx) * 180) / Math.PI;
         arrowEl.style.transform = `rotate(${angleDeg}deg)`;
         arrowEl.style.opacity = dist < leak.hitRadius * 0.85 ? '0' : '0.85';
       }
 
-      // Show faint escaping air bubbles when scanner is warm/hot near a leak
       if (vaporEl) {
         if (dist < 0.22) {
-          vaporEl.innerHTML = `<div class="lh-hiss-glow" style="left:${leak.x * 100}%;top:${leak.y * 100}%;opacity:${Math.max(0.18, 1 - dist * 3.8)}"></div>`;
+          vaporEl.innerHTML = `<div class="lh-hiss-glow" style="position:absolute;left:${leak.x * 100}%;top:${leak.y * 100}%;width:24px;height:24px;border-radius:50%;background:rgba(56,189,248,0.3);transform:translate(-50%,-50%);opacity:${Math.max(0.18, 1 - dist * 3.8)};animation:gentlePulse 1s infinite;"></div>`;
         } else {
           vaporEl.innerHTML = '';
         }
@@ -386,6 +395,7 @@ export function createLeakHunter({ container, onComplete }) {
       const sealed = leaks.filter((l) => l.sealed).length;
       countEl.textContent = `${sealed} / ${leaks.length}`;
       if (sealed >= leaks.length) {
+        SOUNDS.fanfare();
         setFeedback('🎉 Amazing job, Commander! All 3 hull leaks are sealed tight!', 'good');
         safeTimeout(() => renderResults(), 650);
       }
@@ -405,6 +415,7 @@ export function createLeakHunter({ container, onComplete }) {
       }
 
       if (hit) {
+        SOUNDS.patch();
         hit.sealed = true;
         const remaining = leaks.filter((l) => !l.sealed).length;
         setFeedback(
@@ -416,6 +427,7 @@ export function createLeakHunter({ container, onComplete }) {
         renderMarkers();
         updateSensor(nx, ny);
       } else {
+        SOUNDS.click();
         const { dist } = nearestUnsealed(nx, ny);
         setFeedback(
           dist < 0.2
@@ -425,8 +437,15 @@ export function createLeakHunter({ container, onComplete }) {
         );
         const pulse = document.createElement('div');
         pulse.className = 'lh-miss-ping';
+        pulse.style.position = 'absolute';
+        pulse.style.width = '18px';
+        pulse.style.height = '18px';
+        pulse.style.borderRadius = '50%';
+        pulse.style.border = '2px solid rgba(241,107,112,0.8)';
         pulse.style.left = `${nx * 100}%`;
         pulse.style.top = `${ny * 100}%`;
+        pulse.style.transform = 'translate(-50%, -50%)';
+        pulse.style.pointerEvents = 'none';
         markers.appendChild(pulse);
         safeTimeout(() => pulse.remove(), 600);
       }
@@ -455,6 +474,7 @@ export function createLeakHunter({ container, onComplete }) {
     });
 
     function togglePause(force) {
+      SOUNDS.click();
       paused = typeof force === 'boolean' ? force : !paused;
       if (pauseOverlay) pauseOverlay.hidden = !paused;
       if (pauseBtn) {
@@ -463,7 +483,6 @@ export function createLeakHunter({ container, onComplete }) {
       }
     }
 
-    // Keyboard controls for accessibility (Arrow keys / WASD + Space/Enter + P/Escape for pause)
     keyHandler = (e) => {
       if (phase !== 'playing') return;
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
@@ -499,8 +518,14 @@ export function createLeakHunter({ container, onComplete }) {
 
     pauseBtn?.addEventListener('click', () => togglePause());
     resumeBtn?.addEventListener('click', () => togglePause(false));
-    restartBtn?.addEventListener('click', () => startGameplay());
-    helpBtn?.addEventListener('click', () => renderTutorial());
+    restartBtn?.addEventListener('click', () => {
+      SOUNDS.click();
+      startGameplay();
+    });
+    helpBtn?.addEventListener('click', () => {
+      SOUNDS.click();
+      renderTutorial();
+    });
     exitBtn?.addEventListener('click', () => exitToMission());
 
     updateSensor(0.5, 0.5);
@@ -528,6 +553,12 @@ export function createLeakHunter({ container, onComplete }) {
     const starDisplay = '⭐'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
     const fact = NASA_LEAK_FACTS[sealedCount % NASA_LEAK_FACTS.length];
     const pctScore = Math.round(score * 100);
+
+    if (success) {
+      SOUNDS.fanfare();
+    } else {
+      SOUNDS.alert();
+    }
 
     container.innerHTML = `
       <div class="mg-card mg-results-card mg-animate-in" role="dialog" aria-label="Leak Hunter Results">
@@ -563,6 +594,7 @@ export function createLeakHunter({ container, onComplete }) {
     `;
 
     container.querySelector('#lh-retry-btn')?.addEventListener('click', () => {
+      SOUNDS.click();
       startGameplay();
     });
     container.querySelector('#lh-done-btn')?.addEventListener('click', () => {
